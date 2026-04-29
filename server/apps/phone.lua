@@ -288,10 +288,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 			end
 
 			local target = exports['pulsar-characters']:FetchCharacterData("Phone", data.number)
-			if target ~= nil and ((function()
-					local phoneItem = exports.ox_inventory:getUtilitySlotItem(target:GetData("Source"), 8)
-					return phoneItem ~= nil and phoneItem.metadata.durability > 0
-				end)()) then
+			if target ~= nil and exports.ox_inventory:GetItemCount(target:GetData("Source"), 'phone') > 0 then
 				if _calls[target:GetData("Source")] == nil then
 					cb(true)
 
@@ -615,10 +612,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		local char = exports['pulsar-characters']:FetchCharacterSource(source)
 		if char ~= nil and data and data.id and data.number and _bizPhones[data.id] and not _bizPhones[data.id].call and exports['pulsar-jobs']:HasJob(source, _bizPhones[data.id].job) and data.number ~= char:GetData("Phone") then
 			local target = exports['pulsar-characters']:FetchCharacterData("Phone", data.number)
-			if target ~= nil and ((function()
-					local phoneItem = exports.ox_inventory:getUtilitySlotItem(target:GetData("Source"), 8)
-					return phoneItem ~= nil and phoneItem.metadata.durability > 0
-				end)()) then
+			if target ~= nil and exports.ox_inventory:GetItemCount(target:GetData("Source"), 'phone') > 0 then
 				if _calls[target:GetData("Source")] == nil then
 					cb(true)
 

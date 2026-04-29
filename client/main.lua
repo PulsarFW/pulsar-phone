@@ -116,14 +116,7 @@ AddEventHandler("Characters:Client:Updated", function(key)
 	_settings = LocalPlayer.state.Character:GetData("PhoneSettings")
 	exports['pulsar-phone']:DataSet("player", LocalPlayer.state.Character:GetData())
 
-	if
-		key == "States"
-		and LocalPlayer.state.phoneOpen
-		and (function()
-			local phoneItem = exports.ox_inventory:getUtilitySlotItem(8)
-			return phoneItem == nil or phoneItem.metadata.durability <= 0
-		end)()
-	then
+	if key == "States" and LocalPlayer.state.phoneOpen and exports.ox_inventory:GetItemCount('phone') == 0 then
 		exports['pulsar-phone']:Close(true)
 	end
 end)
@@ -236,8 +229,7 @@ function TogglePhone()
 	end
 	if not _openCd then
 		if not exports['pulsar-hud']:IsDisabled() then
-			local phoneItem = exports.ox_inventory:getUtilitySlotItem(8)
-			if (phoneItem ~= nil and phoneItem.metadata.durability > 0) then
+			if exports.ox_inventory:GetItemCount('phone') > 0 then
 				exports['pulsar-phone']:Open()
 			else
 				exports["pulsar-hud"]:Notification("error", "You Don't Have a Phone", 2000)
