@@ -1,5 +1,5 @@
-name("Sandbox RP Framework Phone")
-description("Phone Written For Sandbox RP Framework")
+name("Pulsar Framework Phone")
+description("Phone Written For Pulsar Framework")
 author("[Alzar]")
 lua54("yes")
 fx_version("cerulean")

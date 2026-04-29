@@ -81,7 +81,7 @@ AddEventHandler("Phone:Server:RegisterMiddleware", function()
 		end
 
 		if not profiles.email then
-			local emailaddr = string.format("%s_%s%s@sandboxrp.gg", char:GetData("First"), char:GetData("Last"),
+			local emailaddr = string.format("%s_%s%s@pulsarfw.com", char:GetData("First"), char:GetData("Last"),
 				char:GetData("SID"))
 			local rid = MySQL.insert.await(
 				"INSERT INTO character_app_profiles (sid, app, name, picture, meta) VALUES(?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), picture = VALUES(picture), meta = VALUES(meta)",
@@ -127,7 +127,7 @@ AddEventHandler("Phone:Server:RegisterMiddleware", function()
 	end)
 
 	exports['pulsar-core']:MiddlewareAdd("Phone:CreateProfiles", function(source, cData)
-		local name = string.format("%s_%s%d@sandboxrp.gg", cData.First, cData.Last, cData.SID)
+		local name = string.format("%s_%s%d@pulsarfw.com", cData.First, cData.Last, cData.SID)
 
 		local id = MySQL.insert.await(
 			"INSERT INTO character_app_profiles (sid, app, name) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), picture = VALUES(picture), meta = VALUES(meta)",

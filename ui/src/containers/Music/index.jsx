@@ -311,7 +311,7 @@ const MusicPlayer = (props) => {
 							scrolling="no"
 							allow="autoplay"
 							src={
-								'https://w.soundcloud.com/player/?url=https://soundcloud.com/badcodes/sets/sandboxrp-city-music'
+								'https://w.soundcloud.com/player/?url=https://soundcloud.com/badcodes/sets/pulsarfw-city-music'
 							}
 						></iframe>
 					</div>
