@@ -12,9 +12,6 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Install zip
-        run: sudo apt install zip
-
       - name: Get latest code
         uses: actions/checkout@v4
 
@@ -33,11 +30,9 @@ jobs:
 
       - name: Bundle files
         run: |
-          mkdir -p ./temp/pulsar-phone
-          cp ./{README.md,fxmanifest.lua} ./temp/pulsar-phone
-          cp -r ./{client,server,ui} ./temp/pulsar-phone
-          rm -rf ./temp/pulsar-phone/ui/node_modules
-          cd ./temp && zip -r ../pulsar-phone.zip ./pulsar-phone
+          mkdir -p staging/pulsar-phone
+          rsync -a --exclude='.github' --exclude='node_modules' --exclude='staging' . staging/pulsar-phone/
+          cd staging && zip -r ../pulsar-phone.zip pulsar-phone/
 
       - name: Create release
         uses: softprops/action-gh-release@v2
