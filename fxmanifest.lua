@@ -4,7 +4,7 @@ author("[Alzar]")
 lua54("yes")
 fx_version("cerulean")
 game("gta5")
-version "1.0.3"
+version '1.0.5'
 client_script("@pulsar-core/exports/cl_error.lua")
 client_script("@pulsar-pwnzor/client/check.lua")
 
