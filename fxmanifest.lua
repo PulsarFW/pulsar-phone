@@ -1,32 +1,36 @@
-name("Pulsar Framework Phone")
-description("Phone Written For Pulsar Framework")
-author("[Alzar]")
-lua54("yes")
-fx_version("cerulean")
-game("gta5")
-version '1.0.5'
-client_script("@pulsar-core/exports/cl_error.lua")
-client_script("@pulsar-pwnzor/client/check.lua")
+fx_version 'cerulean'
+game 'gta5'
 
-ui_page("ui/dist/index.html")
-files({
-  "ui/dist/index.html",
-  "ui/dist/*.png",
-  "ui/dist/*.webp",
-  "ui/dist/*.gif",
-  "ui/dist/*.gifv",
-  "ui/dist/*.js",
-  "ui/dist/*.mp3",
-  "ui/dist/*.ttf",
-})
+name 'Pulsar Phone'
+description 'In-game smartphone with 26 apps, home screen, and a live-race HUD'
+author 'Artmines - maintained for Pulsar Framework'
+url 'https://pulsarframe.work'
+version 'v1.0.0'
+
+version_check 'yes'
+github 'https://github.com/PulsarFW/pulsar_phone'
+
+client_script '@pulsar_core/components/cl_error.lua'
+shared_script '@pulsar_core/core/sh_pulsar.lua'
+client_script '@pulsar_pwnzor/client/check.lua'
+server_script '@oxmysql/lib/MySQL.lua'
 
 client_scripts({
-  "client/*.lua",
-  "client/apps/**/*.lua",
+	'client/*.lua',
+	'client/apps/**/*.lua',
 })
 
 server_scripts({
-  '@oxmysql/lib/MySQL.lua',
-  "server/*.lua",
-  "server/apps/**/*.lua",
+	'server/*.lua',
+	'server/apps/**/*.lua',
 })
+
+files({
+	'ui/dist/index.html',
+	'ui/dist/assets/*',
+	'ui/images/frames/*.png',
+	'ui/images/wallpapers/*.webp',
+})
+
+ui_page 'ui/dist/index.html'
+lua54 'yes'

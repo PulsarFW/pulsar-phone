@@ -28,83 +28,81 @@ local _ignoreEvents = {
 	"PhoneSettings",
 }
 
-AddEventHandler('onClientResourceStart', function(resource)
-	if resource == GetCurrentResourceName() then
-		Wait(1000)
-		exports["pulsar-kbs"]:Add("phone_toggle", "M", "keyboard", "Phone - Open/Close", function()
-			TogglePhone()
-		end)
+CreateThread(function()
+	plsr.State.flags.phoneOpen = false
 
-		exports["pulsar-kbs"]:Add("phone_ansend", "", "keyboard", "Phone - Accept/End Call", function()
-			if _call ~= nil then
-				if _call.state == 1 then
-					exports['pulsar-phone']:CallAccept()
-				else
-					exports['pulsar-phone']:CallEnd()
-				end
-			end
-		end)
+	plsr.Keybinds:Add("phone_toggle", "M", "keyboard", "Phone - Open/Close", function()
+		TogglePhone()
+	end)
 
-		exports["pulsar-kbs"]:Add("phone_answer", "", "keyboard", "Phone - Accept Call", function()
-			if _call ~= nil then
-				if _call.state == 1 then
-					exports['pulsar-phone']:CallAccept()
-				end
-			end
-		end)
-
-		exports["pulsar-kbs"]:Add("phone_end", "", "keyboard", "Phone - End Call", function()
-			if _call ~= nil then
-				exports['pulsar-phone']:CallEnd()
-			end
-		end)
-
-		exports["pulsar-kbs"]:Add("phone_mute", "", "keyboard", "Phone - Mute/Unmute Sound", function()
-			if _settings.volume > 0 then
-				_settings.volume = 0
-				exports["pulsar-sounds"]:PlayOne("mute.ogg", 0.1)
+	plsr.Keybinds:Add("phone_ansend", "", "keyboard", "Phone - Accept/End Call", function()
+		if _call ~= nil then
+			if _call.state == 1 then
+				plsr.Phone.Call:Accept()
 			else
-				_settings.volume = 100
-				exports["pulsar-sounds"]:PlayOne("unmute.ogg", 0.1)
+				plsr.Phone.Call:End()
 			end
-			exports["pulsar-core"]:ServerCallback("Phone:Settings:Update", {
-				type = "volume",
-				val = _settings.volume,
-			})
-
-			-- Send this manually since we're blocking PhoneSettings
-			-- updates bcuz react rerendering makes me want to cry
-			SendNUIMessage({
-				type = "UPDATE_DATA",
-				data = {
-					type = "player",
-					id = "PhoneSettings",
-					key = "volume",
-					data = _settings.volume,
-				},
-			})
-		end)
-
-		for k, v in ipairs(_payphones) do
-			exports.ox_target:addModel(v, {
-				{
-					icon = "fas fa-phone-volume",
-					label = "Use Payphone",
-					event = "Phone:Client:Payphone",
-					distance = 2.0,
-					canInteract = function()
-						return not exports['pulsar-phone']:IsOpen() and
-							not exports['pulsar-phone']:CallStatus()
-					end,
-				},
-			})
 		end
+	end)
+
+	plsr.Keybinds:Add("phone_answer", "", "keyboard", "Phone - Accept Call", function()
+		if _call ~= nil then
+			if _call.state == 1 then
+				plsr.Phone.Call:Accept()
+			end
+		end
+	end)
+
+	plsr.Keybinds:Add("phone_end", "", "keyboard", "Phone - End Call", function()
+		if _call ~= nil then
+			plsr.Phone.Call:End()
+		end
+	end)
+
+	plsr.Keybinds:Add("phone_mute", "", "keyboard", "Phone - Mute/Unmute Sound", function()
+		if _settings.volume > 0 then
+			_settings.volume = 0
+			plsr.Sounds.Play:One("mute.ogg", 0.1)
+		else
+			_settings.volume = 100
+			plsr.Sounds.Play:One("unmute.ogg", 0.1)
+		end
+		plsr.Callbacks:ServerCallback("Phone:Settings:Update", {
+			type = "volume",
+			val = _settings.volume,
+		})
+
+		-- Send this manually since we're blocking PhoneSettings
+		-- updates bcuz react rerendering makes me want to cry
+		SendNUIMessage({
+			type = "UPDATE_DATA",
+			data = {
+				type = "player",
+				id = "PhoneSettings",
+				key = "volume",
+				data = _settings.volume,
+			},
+		})
+	end)
+
+	for k, v in ipairs(_payphones) do
+		plsr.Targeting:AddObject(v, "square-phone", {
+			{
+				icon = "square-phone",
+				text = "Use Payphone",
+				event = "Phone:Client:Payphone",
+				minDist = 2.0,
+				isEnabled = function()
+					return not plsr.Phone:IsOpen() and not plsr.Phone.Call:Status()
+				end,
+			},
+		}, 3.0)
 	end
 end)
 
 AddEventHandler("Phone:Client:Payphone", function(entity, data)
 	if entity.entity ~= nil then
-		exports['pulsar-phone']:OpenPayphone()
+		plsr.Phone:OpenPayphone()
 	end
 end)
 
@@ -113,16 +111,20 @@ AddEventHandler("Characters:Client:Updated", function(key)
 		return
 	end
 
-	_settings = LocalPlayer.state.Character:GetData("PhoneSettings")
-	exports['pulsar-phone']:DataSet("player", LocalPlayer.state.Character:GetData())
+	_settings = plsr.State.character.PhoneSettings
+	plsr.Phone.Data:Set("player", plsr.State:Get('character'))
 
-	if key == "States" and LocalPlayer.state.phoneOpen and exports.ox_inventory:GetItemCount('phone') == 0 then
-		exports['pulsar-phone']:Close(true)
+	if
+		key == "States"
+		and plsr.State.flags.phoneOpen
+		and (not hasValue(plsr.State.character.States, "PHONE"))
+	then
+		plsr.Phone:Close(true)
 	end
 end)
 
 RegisterNetEvent("Job:Client:DutyChanged", function(state)
-	exports['pulsar-phone']:DataSet("onDuty", state)
+	plsr.Phone.Data:Set("onDuty", state)
 end)
 
 RegisterNetEvent("UI:Client:Reset", function(manual)
@@ -134,21 +136,21 @@ RegisterNetEvent("UI:Client:Reset", function(manual)
 
 	if manual then
 		TriggerServerEvent("Phone:Server:UIReset")
-		if LocalPlayer.state.phoneOpen then
-			exports['pulsar-phone']:Close()
+		if plsr.State.flags.phoneOpen then
+			plsr.Phone:Close()
 		end
 	end
 end)
 
 AddEventHandler("UI:Client:Close", function(context)
 	if context ~= "phone" then
-		exports['pulsar-phone']:Close()
+		plsr.Phone:Close()
 	end
 end)
 
 AddEventHandler("Ped:Client:Died", function()
-	if LocalPlayer.state.phoneOpen then
-		exports['pulsar-phone']:Close()
+	if plsr.State.flags.phoneOpen then
+		plsr.Phone:Close()
 	end
 end)
 
@@ -166,23 +168,23 @@ local shareTypes = {
 }
 
 RegisterNetEvent("Phone:Client:ReceiveShare", function(share, time)
-	exports['pulsar-phone']:NotificationAdd("Received QuickShare", shareTypes[share.type], time, 7500, {
+	plsr.Phone.Notification:Add("Received QuickShare", shareTypes[share.type], time, 7500, {
 		color = "#18191e",
 		label = "Share",
 		icon = "share-nodes",
 	}, {
 		view = "USE_SHARE",
 	}, nil)
-	exports['pulsar-phone']:ReceiveShare(share)
+	plsr.Phone:ReceiveShare(share)
 end)
 
 AddEventHandler("Characters:Client:Spawn", function()
 	_loggedIn = true
 
-	if LocalPlayer.state.Character then
-		local settings = LocalPlayer.state.Character:GetData("PhoneSettings")
+	if plsr.State.flags.loggedIn then
+		local settings = plsr.State.character.PhoneSettings
 		if settings then
-			exports['pulsar-phone']:SetExpanded(settings.Expanded)
+			plsr.Phone:SetExpanded(settings.Expanded)
 		end
 	end
 
@@ -203,7 +205,7 @@ RegisterNetEvent("Characters:Client:Logout", function()
 	_loggedIn = false
 
 	CleanupBizPhones()
-	playsound()
+	StopCallSounds()
 end)
 
 function hasValue(tbl, value)
@@ -228,31 +230,29 @@ function TogglePhone()
 		return
 	end
 	if not _openCd then
-		if not exports['pulsar-hud']:IsDisabled() then
-			if exports.ox_inventory:GetItemCount('phone') > 0 then
-				exports['pulsar-phone']:Open()
+		if not plsr.Hud:IsDisabled() then
+			if not plsr.Jail:IsJailed() and hasValue(plsr.State.character.States, "PHONE") then
+				plsr.Phone:Open()
 			else
-				exports["pulsar-hud"]:Notification("error", "You Don't Have a Phone", 2000)
-				LocalPlayer.state.phoneOpen = false
+				plsr.Notification:Error("You Don't Have a Phone", 2000)
+				plsr.State.flags.phoneOpen = false
 			end
 		else
-			exports['pulsar-phone']:Close()
+			plsr.Phone:Close()
 		end
 
 		if not IsPedInAnyVehicle(PlayerPedId(), true) then
-			DisplayRadar(LocalPlayer.state.phoneOpen or hasValue(LocalPlayer.state.Character:GetData("States"), "GPS"))
+			DisplayRadar(plsr.State.flags.phoneOpen or hasValue(plsr.State.character.States, "GPS"))
 		end
 	end
 end
 
-exports('TogglePhone', TogglePhone)
-
 AddEventHandler("Phone:Client:OpenLimited", function()
-	exports['pulsar-phone']:OpenLimited()
+	plsr.Phone:OpenLimited()
 end)
 
 AddEventHandler("Ped:Client:Died", function()
-	exports['pulsar-phone']:Close(true)
+	plsr.Phone:Close(true)
 end)
 
 RegisterNUICallback("CDExpired", function(data, cb)
@@ -262,25 +262,25 @@ end)
 
 RegisterNUICallback("Home", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:Apps:Home", data)
+	plsr.Callbacks:ServerCallback("Phone:Apps:Home", data)
 end)
 
 RegisterNUICallback("Dock", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:Apps:Dock", data)
+	plsr.Callbacks:ServerCallback("Phone:Apps:Dock", data)
 end)
 
 RegisterNUICallback("Reorder", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:Apps:Reorder", data)
+	plsr.Callbacks:ServerCallback("Phone:Apps:Reorder", data)
 end)
 
 RegisterNUICallback("UpdateAlias", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:UpdateAlias", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:UpdateAlias", data, cb)
 end)
 
 RegisterNUICallback("UpdateProfile", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:UpdateProfile", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:UpdateProfile", data, cb)
 end)
 
 RegisterNetEvent("Phone:Client:RestorePosition", function(data)
@@ -292,7 +292,7 @@ end)
 
 RegisterNUICallback("Phone:SavePosition", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:SavePosition", data)
+	plsr.Callbacks:ServerCallback("Phone:SavePosition", data)
 end)
 
 RegisterNUICallback("AcceptPopup", function(data, cb)
@@ -315,10 +315,10 @@ end)
 
 RegisterNUICallback("SaveShare", function(data, cb)
 	if data.type == "contacts" then
-		exports["pulsar-core"]:ServerCallback("Phone:Contacts:Create", data.data, function(nId)
+		plsr.Callbacks:ServerCallback("Phone:Contacts:Create", data.data, function(nId)
 			cb(nId)
 			if nId then
-				exports['pulsar-phone']:DataAdd("contacts", {
+				plsr.Phone.Data:Add("contacts", {
 					id = nId,
 					name = data.data.name,
 					number = data.data.number,
@@ -328,13 +328,13 @@ RegisterNUICallback("SaveShare", function(data, cb)
 			end
 		end)
 	elseif data.type == "documents" then
-		exports["pulsar-core"]:ServerCallback("Phone:Documents:RecieveShare", data.data, function(success)
+		plsr.Callbacks:ServerCallback("Phone:Documents:RecieveShare", data.data, function(success)
 			cb(success)
 			if success then
 				if success.update then
-					exports['pulsar-phone']:DataUpdate("myDocuments", success.id, success)
+					plsr.Phone.Data:Update("myDocuments", success.id, success)
 				else
-					exports['pulsar-phone']:DataAdd("myDocuments", success)
+					plsr.Phone.Data:Add("myDocuments", success)
 				end
 			end
 		end)
@@ -345,5 +345,5 @@ end)
 
 RegisterNUICallback("ShareMyContact", function(data, cb)
 	cb(true)
-	exports["pulsar-core"]:ServerCallback("Phone:ShareMyContact", {})
+	plsr.Callbacks:ServerCallback("Phone:ShareMyContact", {})
 end)

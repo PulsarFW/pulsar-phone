@@ -1,4 +1,6 @@
-local _blacklistedJobs = { "police", "ems", "government" }
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
+
+local _blacklistedJobs = config.ProtectedJobs
 local _tabletJobs = {
 	"pdm",
 	"realestate",
@@ -319,9 +321,9 @@ local _jobPerms = {
 local _pendingHires = {}
 local _pendingXfers = {}
 
-exports("CoManagerFetchAllAccessibleRosters", function(source)
-	local success, result = pcall(function()
-		local playersJobs = exports['pulsar-jobs']:GetJobs(source)
+PHONE.CoManager = {
+	FetchAllAccessibleRosters = function(self, source)
+		local playersJobs = plsr.Jobs.Permissions:GetJobs(source)
 		local fetchedRosterData = {}
 		local fetchingJobs = {}
 		for k, v in ipairs(playersJobs) do
@@ -332,7 +334,7 @@ exports("CoManagerFetchAllAccessibleRosters", function(source)
 		end
 
 		local onlineCharacters = {}
-		for _, char in pairs(exports['pulsar-characters']:FetchAllCharacters()) do
+		for _, char in pairs(plsr.Fetch:AllCharacters()) do
 			if char ~= nil then
 				table.insert(onlineCharacters, char:GetData("SID"))
 				local jobs = char:GetData("Jobs")
@@ -353,168 +355,142 @@ exports("CoManagerFetchAllAccessibleRosters", function(source)
 			end
 		end
 
-		local results
-		if #onlineCharacters > 0 then
-			local placeholders = {}
-			for i = 1, #onlineCharacters do
-				table.insert(placeholders, "?")
-			end
-			local query = 'SELECT SID, First, Last, Phone, Jobs FROM characters WHERE SID NOT IN (' ..
-				table.concat(placeholders, ',') .. ')'
-			results = MySQL.Sync.fetchAll(query, onlineCharacters)
-		else
-			results = MySQL.Sync.fetchAll('SELECT SID, First, Last, Phone, Jobs FROM characters')
+		local p = promise.new()
+
+		local placeholders = {}
+		for i = 1, #onlineCharacters do
+			table.insert(placeholders, "?")
 		end
+		local excludeClause = #onlineCharacters > 0 and (" AND `sid` NOT IN (" .. table.concat(placeholders, ", ") .. ")") or ""
 
-		if results and #results > 0 then
-			for _, c in ipairs(results) do
-				local jobs = {}
-				if c.Jobs and c.Jobs ~= "" then
-					local success, decoded = pcall(json.decode, c.Jobs)
-					if success and decoded then
-						jobs = decoded
-					else
-						jobs = {}
-					end
-				end
-
-				if jobs and #jobs > 0 then
-					for _, job in ipairs(jobs) do
-						if fetchingJobs[job.Id] then
-							if not fetchedRosterData[job.Id] then
-								fetchedRosterData[job.Id] = {}
+		plsr.Database:Query(
+			"SELECT `data` FROM `characters` WHERE `deleted` = 0" .. excludeClause,
+			onlineCharacters,
+			function(success, results)
+				if success then
+					for _, row in ipairs(results) do
+						local ok, c = pcall(json.decode, row.data)
+						if ok and type(c) == "table" and c.Jobs then
+							for k, v in ipairs(c.Jobs) do
+								if
+									fetchingJobs[v.Id]
+									and (not workplaceId or (v.Workplace and v.Workplace.Id == workplaceId))
+									and (not gradeId or (v.Grade and v.Grade.Id == gradeId))
+								then
+									table.insert(fetchedRosterData[v.Id], {
+										Source = false,
+										SID = c.SID,
+										First = c.First,
+										Last = c.Last,
+										Phone = c.Phone,
+										JobData = v,
+									})
+								end
 							end
-
-							table.insert(fetchedRosterData[job.Id], {
-								Source = false,
-								SID = c.SID,
-								First = c.First,
-								Last = c.Last,
-								Phone = c.Phone,
-								JobData = job,
-							})
 						end
 					end
+					p:resolve(true)
+				else
+					p:resolve(false)
 				end
 			end
-		end
+		)
 
-		local hasData = false
-		for jobId, roster in pairs(fetchedRosterData) do
-			if #roster > 0 then
-				hasData = true
-				break
-			end
-		end
-
-		if hasData then
+		local res = Citizen.Await(p)
+		if res then
 			return fetchedRosterData
 		else
 			return false
 		end
-	end)
+	end,
+	FetchTimeWorked = function(self, source, jobId)
+		if plsr.Jobs.Permissions:HasJob(source, jobId, false, false, false, false, "JOB_MANAGEMENT") then
+			local onlineCharacters = {}
 
-	if success then
-		return result
-	else
-		return false
-	end
-end)
+			local onlineByJob = {}
 
-exports("CoManagerFetchTimeWorked", function(source, jobId)
-	local jobData = exports['pulsar-jobs']:HasJob(source, jobId, false, false, false, false, "JOB_MANAGEMENT")
-	if jobData then
-		local onlineCharacters = {}
-
-		local onlineShit = {}
-
-		for _, char in pairs(exports['pulsar-characters']:FetchAllCharacters()) do
-			if char ~= nil then
-				table.insert(onlineCharacters, char:GetData("SID"))
-				local jobs = char:GetData("Jobs")
-				if jobs and #jobs > 0 then
-					for k, v in ipairs(jobs) do
-						if v.Id == jobId then
-							table.insert(onlineShit, {
-								Source = char:GetData("Source"),
-								SID = char:GetData("SID"),
-								First = char:GetData("First"),
-								Last = char:GetData("Last"),
-								Phone = char:GetData("Phone"),
-								LastClockOn = char:GetData("LastClockOn"),
-								TimeClockedOn = char:GetData("TimeClockedOn"),
-							})
+			for _, char in pairs(plsr.Fetch:AllCharacters()) do
+				if char ~= nil then
+					table.insert(onlineCharacters, char:GetData("SID"))
+					local jobs = char:GetData("Jobs")
+					if jobs and #jobs > 0 then
+						for k, v in ipairs(jobs) do
+							if v.Id == jobId then
+								table.insert(onlineByJob, {
+									Source = char:GetData("Source"),
+									SID = char:GetData("SID"),
+									First = char:GetData("First"),
+									Last = char:GetData("Last"),
+									Phone = char:GetData("Phone"),
+									LastClockOn = char:GetData("LastClockOn"),
+									TimeClockedOn = char:GetData("TimeClockedOn"),
+								})
+							end
 						end
 					end
 				end
 			end
-		end
 
-		local results
-		if #onlineCharacters > 0 then
+			local p = promise.new()
+
 			local placeholders = {}
 			for i = 1, #onlineCharacters do
 				table.insert(placeholders, "?")
 			end
-			local query =
-				'SELECT SID, First, Last, Phone, LastClockOn, TimeClockedOn, Jobs FROM characters WHERE SID NOT IN (' ..
-				table.concat(placeholders, ',') .. ')'
-			results = MySQL.Sync.fetchAll(query, onlineCharacters)
-		else
-			results = MySQL.Sync.fetchAll(
-				'SELECT SID, First, Last, Phone, LastClockOn, TimeClockedOn, Jobs FROM characters')
-		end
+			local excludeClause = #onlineCharacters > 0 and (" AND `sid` NOT IN (" .. table.concat(placeholders, ", ") .. ")") or ""
 
-		if results and #results > 0 then
-			for _, c in ipairs(results) do
-				local jobs = {}
-				if c.Jobs and c.Jobs ~= "" then
-					local success, decoded = pcall(json.decode, c.Jobs)
-					if success and decoded then
-						jobs = decoded
-					else
-						jobs = {}
-					end
-				end
-				if jobs and #jobs > 0 then
-					for _, job in ipairs(jobs) do
-						if job.Id == jobId then
-							table.insert(onlineShit, {
-								Source = false,
-								SID = c.SID,
-								First = c.First,
-								Last = c.Last,
-								Phone = c.Phone,
-								LastClockOn = c.LastClockOn,
-								TimeClockedOn = c.TimeClockedOn,
-							})
+			plsr.Database:Query(
+				"SELECT `data` FROM `characters` WHERE `deleted` = 0" .. excludeClause,
+				onlineCharacters,
+				function(success, results)
+					if success then
+						for _, row in ipairs(results) do
+							local ok, c = pcall(json.decode, row.data)
+							if ok and type(c) == "table" and c.Jobs then
+								for k, v in ipairs(c.Jobs) do
+									if v.Id == jobId then
+										table.insert(onlineByJob, {
+											Source = false,
+											SID = c.SID,
+											First = c.First,
+											Last = c.Last,
+											Phone = c.Phone,
+											LastClockOn = c.LastClockOn,
+											TimeClockedOn = c.TimeClockedOn,
+										})
+									end
+								end
+							end
 						end
+						p:resolve(true)
+					else
+						p:resolve(false)
 					end
 				end
+			)
+
+			local res = Citizen.Await(p)
+			if res then
+				return onlineByJob
+			else
+				return false
 			end
 		end
-
-		if #onlineShit > 0 then
-			return onlineShit
-		else
-			return false
-		end
-	else
 		return false
-	end
-end)
+	end,
+}
 
 function GetOfflineCharacter(stateId)
 	local p = promise.new()
-
-	MySQL.Async.fetchAll('SELECT * FROM characters WHERE SID = @stateId', {
-		['@stateId'] = stateId
-	}, function(results)
-		if results[1] then
-			p:resolve(results[1])
-		else
-			p:resolve(false)
+	plsr.Database:Single("SELECT `data` FROM `characters` WHERE `sid` = ? AND `deleted` = 0", { stateId }, function(success, row)
+		if success and row ~= nil then
+			local ok, char = pcall(json.decode, row.data)
+			if ok and type(char) == "table" then
+				p:resolve(char)
+				return
+			end
 		end
+		p:resolve(false)
 	end)
 
 	local res = Citizen.Await(p)
@@ -538,14 +514,14 @@ AddEventHandler("Characters:Server:PlayerDropped", function(source, cData)
 end)
 
 AddEventHandler("Phone:Server:RegisterMiddleware", function()
-	exports['pulsar-core']:MiddlewareAdd("Characters:Spawning", function(source)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Middleware:Add("Characters:Spawning", function(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		if _pendingHires[char:GetData("SID")] ~= nil then
 			local data = _pendingHires[char:GetData("SID")]
 			TriggerClientEvent("Phone:Client:CoManager:GetJobOffer", source, data.time, data.NewJob)
 		end
 	end, 2)
-	exports['pulsar-core']:MiddlewareAdd("Phone:Spawning", function(source, char)
+	plsr.Middleware:Add("Phone:Spawning", function(source, char)
 		return {
 			{
 				type = "externalJobs",
@@ -560,16 +536,16 @@ AddEventHandler("Phone:Server:RegisterMiddleware", function()
 end)
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:QuitJob", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:QuitJob", function(source, data, cb)
 		local jobId = data.JobId
 
 		if jobId and not hasValue(_blacklistedJobs, jobId) then
-			if exports['pulsar-jobs']:IsOwner(source, jobId) then
+			if plsr.Jobs.Permissions:IsOwner(source, jobId) then
 				return cb({ success = false, code = "IS_OWNER" })
 			else
-				local char = exports['pulsar-characters']:FetchCharacterSource(source)
+				local char = plsr.Fetch:CharacterSource(source)
 				if char then
-					local success = exports['pulsar-jobs']:RemoveJob(char:GetData("SID"), jobId)
+					local success = plsr.Jobs:RemoveJob(char:GetData("SID"), jobId)
 					if success then
 						return cb({ success = true, code = "ERROR" })
 					end
@@ -579,30 +555,30 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		return cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:FetchRoster", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:FetchRoster", function(source, data, cb)
 		if data.ReqUpdate then
-			local updatedJobData = exports['pulsar-phone']:UpdateJobData(source, true)
+			local updatedJobData = plsr.Phone:UpdateJobData(source, true)
 			cb({
 				jobData = updatedJobData.jobData,
-				rosterData = exports['pulsar-phone']:CoManagerFetchAllAccessibleRosters(source),
+				rosterData = plsr.Phone.CoManager:FetchAllAccessibleRosters(source),
 			})
 		else
 			cb({
-				rosterData = exports['pulsar-phone']:CoManagerFetchAllAccessibleRosters(source),
+				rosterData = plsr.Phone.CoManager:FetchAllAccessibleRosters(source),
 			})
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:FetchTimeWorked", function(source, data, cb)
-		cb(exports['pulsar-phone']:CoManagerFetchTimeWorked(source, data))
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:FetchTimeWorked", function(source, data, cb)
+		cb(plsr.Phone.CoManager:FetchTimeWorked(source, data))
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:RenameCompany", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:RenameCompany", function(source, data, cb)
 		local jobId, newName = data.JobId, data.NewName
 
 		if jobId and newName and not hasValue(_blacklistedJobs, jobId) then
-			if exports['pulsar-jobs']:IsOwner(source, jobId) then
-				local res = exports['pulsar-jobs']:ManagementEdit(jobId, {
+			if plsr.Jobs.Permissions:IsOwner(source, jobId) then
+				local res = plsr.Jobs.Management:Edit(jobId, {
 					Name = newName,
 				})
 
@@ -615,22 +591,23 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:HireEmployee", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:HireEmployee", function(source, data, cb)
 		local stateId, jobId, workplace, grade =
 			math.tointeger(data.SID), data.Job.Id, data.Job.Workplace, data.Job.Grade
 
-		if
-			(not workplace or (workplace and workplace.Id))
+		-- client only sends {Id}, resolve the full record (incl. Level) server-side rather than trusting the client for it
+		local resolvedJob = (not workplace or (workplace and workplace.Id))
 			and grade
 			and grade.Id
-			and exports['pulsar-jobs']:DoesExist(jobId, (workplace and workplace.Id or false), grade.Id)
-		then
-			local playerJobData = exports['pulsar-jobs']:HasJob(source, jobId)
-			local playerJobPerms = exports['pulsar-jobs']:GetPermissionsFromJob(source, jobId)
-			local playerIsOwner = exports['pulsar-jobs']:IsOwner(source, jobId)
+			and plsr.Jobs:DoesExist(jobId, (workplace and workplace.Id or false), grade.Id)
+
+		if resolvedJob then
+			local playerJobData = plsr.Jobs.Permissions:HasJob(source, jobId)
+			local playerJobPerms = plsr.Jobs.Permissions:GetPermissionsFromJob(source, jobId)
+			local playerIsOwner = plsr.Jobs.Permissions:IsOwner(source, jobId)
 			if (playerJobPerms and (playerJobPerms.JOB_HIRE or playerJobPerms.JOB_MANAGEMENT)) or playerIsOwner then
-				if (playerJobData.Grade.Level > grade.Level) or playerIsOwner then
-					local targetChar = exports['pulsar-characters']:FetchBySID(stateId)
+				if (playerJobData.Grade.Level > resolvedJob.Grade.Level) or playerIsOwner then
+					local targetChar = plsr.Fetch:SID(stateId)
 
 					if targetChar then
 						local time = os.time()
@@ -646,7 +623,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 							end
 						end
 
-						if not _pendingHires[stateId] or (os.time() - _pendingHires[stateId].time) >= 300 then
+						if not _pendingHires[stateId] or (os.time() - _pendingHires[stateId].time) >= config.Comanager.hireOfferCooldown then
 							local hireData = {
 								time = time,
 								HiredBy = source,
@@ -654,7 +631,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 									Id = playerJobData.Id,
 									Name = playerJobData.Name,
 									Workplace = workplace,
-									Grade = grade,
+									Grade = resolvedJob.Grade,
 								},
 							}
 
@@ -679,21 +656,21 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		return cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:FireEmployee", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:FireEmployee", function(source, data, cb)
 		local stateId, jobId = math.tointeger(data.SID), data.Job.Id
 
 		if stateId and jobId then
-			local job = exports['pulsar-jobs']:Get(jobId)
-			local playerJobData = exports['pulsar-jobs']:HasJob(source, jobId)
-			local playerJobPerms = exports['pulsar-jobs']:GetPermissionsFromJob(source, jobId)
-			local playerIsOwner = exports['pulsar-jobs']:IsOwner(source, jobId)
+			local job = plsr.Jobs:Get(jobId)
+			local playerJobData = plsr.Jobs.Permissions:HasJob(source, jobId)
+			local playerJobPerms = plsr.Jobs.Permissions:GetPermissionsFromJob(source, jobId)
+			local playerIsOwner = plsr.Jobs.Permissions:IsOwner(source, jobId)
 			if (playerJobPerms and (playerJobPerms.JOB_FIRE or playerJobPerms.JOB_MANAGEMENT)) or playerIsOwner then
 				if job.Owner and job.Owner == stateId then
 					return cb({ success = false, code = "INVALID_PERMISSIONS" })
 				end
 
 				local targetJobData = false
-				local targetChar = exports['pulsar-characters']:FetchBySID(stateId)
+				local targetChar = plsr.Fetch:SID(stateId)
 
 				if targetChar then
 					targetJobData = targetChar:GetData("Jobs")
@@ -716,7 +693,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					end
 
 					if canRemoveJob then
-						local success = exports['pulsar-jobs']:RemoveJob(stateId, playerJobData.Id)
+						local success = plsr.Jobs:RemoveJob(stateId, playerJobData.Id)
 						return cb({ success = success, code = "ERROR" })
 					else
 						return cb({ success = false, code = "INVALID_PERMISSIONS" })
@@ -730,17 +707,19 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		return cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:UpdateEmployee", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:UpdateEmployee", function(source, data, cb)
 		local stateId, jobId, workplace, grade =
 			math.tointeger(data.SID), data.Job.Id, data.Job.Workplace, data.Job.Grade
-		if
-			(not workplace or (workplace and workplace.Id) and grade and grade.Id)
-			and exports['pulsar-jobs']:DoesExist(jobId, (workplace and workplace.Id or false), grade.Id)
-		then
-			local job = exports['pulsar-jobs']:Get(jobId)
-			local playerJobData = exports['pulsar-jobs']:HasJob(source, jobId)
-			local playerJobPerms = exports['pulsar-jobs']:GetPermissionsFromJob(source, jobId)
-			local playerIsOwner = exports['pulsar-jobs']:IsOwner(source, jobId)
+
+		-- client only sends {Id}, resolve the full record (incl. Level) server-side rather than trusting the client for it
+		local resolvedJob = (not workplace or (workplace and workplace.Id) and grade and grade.Id)
+			and plsr.Jobs:DoesExist(jobId, (workplace and workplace.Id or false), grade.Id)
+
+		if resolvedJob then
+			local job = plsr.Jobs:Get(jobId)
+			local playerJobData = plsr.Jobs.Permissions:HasJob(source, jobId)
+			local playerJobPerms = plsr.Jobs.Permissions:GetPermissionsFromJob(source, jobId)
+			local playerIsOwner = plsr.Jobs.Permissions:IsOwner(source, jobId)
 			if
 				(playerJobPerms and (playerJobPerms.JOB_MANAGE_EMPLOYEES or playerJobPerms.JOB_MANAGEMENT))
 				or playerIsOwner
@@ -749,8 +728,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					return cb({ success = false, code = "INVALID_PERMISSIONS" })
 				end
 
-				if (playerJobData.Grade.Level > grade.Level) or playerIsOwner then
-					local targetChar = exports['pulsar-characters']:FetchBySID(stateId)
+				if (playerJobData.Grade.Level > resolvedJob.Grade.Level) or playerIsOwner then
+					local targetChar = plsr.Fetch:SID(stateId)
 					local targetJobData = false
 
 					if targetChar then
@@ -775,8 +754,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 
 						if canChangeJob then
 							local success =
-								exports['pulsar-jobs']:GiveJob(stateId, playerJobData.Id,
-									(workplace and workplace.Id or false), grade.Id)
+								plsr.Jobs:GiveJob(stateId, playerJobData.Id, (workplace and workplace.Id or false), grade.Id)
 							return cb({ success = success, code = "ERROR" })
 						else
 							return cb({ success = false, code = "INVALID_PERMISSIONS" })
@@ -791,12 +769,12 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		return cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:EditWorkplace", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:EditWorkplace", function(source, data, cb)
 		local jobId, workplaceId, newName = data.JobId, data.WorkplaceId, data.NewName
 
 		if jobId and newName and not hasValue(_blacklistedJobs, jobId) then
-			if exports['pulsar-jobs']:IsOwner(source, jobId) then
-				local res = exports['pulsar-jobs']:ManagementWorkplaceEdit(jobId, workplaceId, newName)
+			if plsr.Jobs.Permissions:IsOwner(source, jobId) then
+				local res = plsr.Jobs.Management.Workplace:Edit(jobId, workplaceId, newName)
 				cb(res)
 			else
 				cb({ success = false, code = "INVALID_PERMISSIONS" })
@@ -806,13 +784,13 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:CreateGrade", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:CreateGrade", function(source, data, cb)
 		local jobId, workplaceId, gradeName, gradeLevel, gradePermissions =
 			data.JobId, data.WorkplaceId, data.Name, math.tointeger(data.Level), data.Permissions
 		if jobId and gradeName and gradeLevel and gradePermissions and not hasValue(_blacklistedJobs, jobId) then
-			local playerJobData = exports['pulsar-jobs']:HasJob(source, jobId)
-			local playerJobPerms = exports['pulsar-jobs']:GetPermissionsFromJob(source, jobId)
-			local playerIsOwner = exports['pulsar-jobs']:IsOwner(source, jobId)
+			local playerJobData = plsr.Jobs.Permissions:HasJob(source, jobId)
+			local playerJobPerms = plsr.Jobs.Permissions:GetPermissionsFromJob(source, jobId)
+			local playerIsOwner = plsr.Jobs.Permissions:IsOwner(source, jobId)
 
 			for k, v in pairs(gradePermissions) do
 				if v and (not playerJobPerms[k] and not playerIsOwner) then
@@ -824,8 +802,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 				((playerJobPerms and playerJobPerms.JOB_MANAGEMENT) and gradeLevel < playerJobData.Grade.Level)
 				or playerIsOwner
 			then
-				local res = exports['pulsar-jobs']:ManagementGradesCreate(jobId, workplaceId, gradeName, gradeLevel,
-					gradePermissions)
+				local res = plsr.Jobs.Management.Grades:Create(jobId, workplaceId, gradeName, gradeLevel, gradePermissions)
 				return cb(res)
 			else
 				return cb({ success = false, code = "INVALID_PERMISSIONS" })
@@ -834,15 +811,15 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:EditGrade", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:EditGrade", function(source, data, cb)
 		local jobId, workplaceId, gradeId, gradeName, gradeLevel, gradePermissions =
 			data.JobId, data.WorkplaceId, data.Id, data.Name, tonumber(data.Level), data.Permissions
 		if jobId and gradeId and not hasValue(_blacklistedJobs, jobId) then
-			local existingGrade = exports['pulsar-jobs']:DoesExist(jobId, workplaceId, gradeId)
+			local existingGrade = plsr.Jobs:DoesExist(jobId, workplaceId, gradeId)
 			if existingGrade then
-				local playerJobData = exports['pulsar-jobs']:HasJob(source, jobId)
-				local playerJobPerms = exports['pulsar-jobs']:GetPermissionsFromJob(source, jobId)
-				local playerIsOwner = exports['pulsar-jobs']:IsOwner(source, jobId)
+				local playerJobData = plsr.Jobs.Permissions:HasJob(source, jobId)
+				local playerJobPerms = plsr.Jobs.Permissions:GetPermissionsFromJob(source, jobId)
+				local playerIsOwner = plsr.Jobs.Permissions:IsOwner(source, jobId)
 
 				for k, v in pairs(gradePermissions) do
 					if v and (not playerJobPerms[k] and not playerIsOwner) then
@@ -857,7 +834,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 						and gradeLevel < playerJobData.Grade.Level
 					) or playerIsOwner
 				then
-					local res = exports['pulsar-jobs']:ManagementGradesEdit(jobId, workplaceId, gradeId, {
+					local res = plsr.Jobs.Management.Grades:Edit(jobId, workplaceId, gradeId, {
 						Name = gradeName,
 						Level = gradeLevel,
 						Permissions = gradePermissions,
@@ -872,21 +849,21 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:DeleteGrade", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:DeleteGrade", function(source, data, cb)
 		local jobId, workplaceId, gradeId = data.JobId, data.WorkplaceId, data.Id
 		if jobId and gradeId and not hasValue(_blacklistedJobs, jobId) then
-			local existingGrade = exports['pulsar-jobs']:DoesExist(jobId, workplaceId, gradeId)
+			local existingGrade = plsr.Jobs:DoesExist(jobId, workplaceId, gradeId)
 			if existingGrade then
-				local playerJobData = exports['pulsar-jobs']:HasJob(source, jobId)
-				local playerJobPerms = exports['pulsar-jobs']:GetPermissionsFromJob(source, jobId)
-				local playerIsOwner = exports['pulsar-jobs']:IsOwner(source, jobId)
+				local playerJobData = plsr.Jobs.Permissions:HasJob(source, jobId)
+				local playerJobPerms = plsr.Jobs.Permissions:GetPermissionsFromJob(source, jobId)
+				local playerIsOwner = plsr.Jobs.Permissions:IsOwner(source, jobId)
 				if
 					(
 						(playerJobPerms and playerJobPerms.JOB_MANAGEMENT)
 						and existingGrade.Grade.Level < playerJobData.Grade.Level
 					) or playerIsOwner
 				then
-					local res = exports['pulsar-jobs']:ManagementGradesDelete(jobId, workplaceId, gradeId)
+					local res = plsr.Jobs.Management.Grades:Delete(jobId, workplaceId, gradeId)
 					return cb(res)
 				else
 					return cb({ success = false, code = "INVALID_PERMISSIONS" })
@@ -896,18 +873,18 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:PurchaseUpgrade", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:PurchaseUpgrade", function(source, data, cb)
 		-- TODO
 		cb({ success = false, code = "ERROR" })
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:AcceptHire", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:AcceptHire", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char then
 			local stateId = char:GetData("SID")
 			local data = _pendingHires[stateId]
 			if data then
-				local success = exports['pulsar-jobs']:GiveJob(
+				local success = plsr.Jobs:GiveJob(
 					stateId,
 					data.NewJob.Id,
 					(data.NewJob.Workplace and data.NewJob.Workplace.Id or false),
@@ -921,8 +898,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		return cb(os.time(), false)
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:DeclineHire", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:DeclineHire", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char then
 			local stateId = char:GetData("SID")
 			local data = _pendingHires[stateId]
@@ -934,7 +911,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb(os.time())
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:CoManager:DisbandCompany", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:CoManager:DisbandCompany", function(source, data, cb)
 		-- ! Disabled
 		cb({ success = false, code = "ERROR" })
 	end)

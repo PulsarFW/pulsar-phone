@@ -1,45 +1,18 @@
--- CRYPTO SETTINGS
-local _awardedCoin = "VRM"
-local _awardedAmount = 5
-local _cryptoPayout = 16
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
 
-local _reqForCrypto = 5
+-- CRYPTO SETTINGS
+local _awardedCoin = config.Racing.awardedCoin
+local _awardedAmount = config.Racing.awardedAmount
+local _cryptoPayout = config.Racing.cryptoPayout
+
+local _reqForCrypto = config.Racing.minRacersForCrypto
 
 local _races = {}
 local _raceInvites = {}
 local _trackData = {}
 local _tracks = nil
 
-local _raceItems = {
-	{ item = "racing_crappy",   coin = "MALD", price = 10,     qty = 100,  vpn = false },
-	{ item = "racedongle",      coin = "VRM",  rep = "Racing", repLvl = 3, price = 20,   qty = 5, vpn = false },
-	{ item = "purgecontroller", coin = "VRM",  rep = "Racing", repLvl = 3, price = 50,   qty = 5, vpn = false },
-	{ item = "harness",         coin = "VRM",  rep = "Racing", repLvl = 1, price = 20,   qty = 5, vpn = false },
-
-	{ item = "alias_changer",   coin = "VRM",  rep = "Racing", repLvl = 5, price = 2000, qty = 2, vpn = true },
-
-	{
-		item = "lsundg_invite",
-		coin = "VRM",
-		price = 100,
-		qty = -1,
-		vpn = true,
-		state = "ACCESS_LSUNDG_INVITE",
-		limited = {
-			id = 1,
-			qty = 5,
-		},
-	},
-
-	-- --	{ item = "racedongle", coin = "MALD", rep = "Racing", repLvl = 3, price = 30, qty = 25, vpn = true },
-	--{ item = "choplist", coin = "VRM", rep = "Chopping", repLvl = 3, price = 25, qty = 100, vpn = true },
-	--{ item = "choplist", coin = "MALD", rep = "Chopping", repLvl = 3, price = 50, qty = 100, vpn = true },
-	-- 	{ item = "fakeplates", coin = "VRM", rep = "Racing", repLvl = 1, price = 20, qty = 5, vpn = true },
-	-- 	{ item = "fakeplates", coin = "MALD", price = 48, qty = 2, vpn = true },
-
-	{ item = "nitrous", coin = "VRM", price = 10, qty = 10, vpn = true },
-	-- 	{ item = "nitrous", coin = "MALD", price = 50, qty = 10, vpn = true },
-}
+local _raceItems = config.Racing.items
 
 function table.slice(tbl, first, last, step)
 	local sliced = {}
@@ -58,16 +31,16 @@ end
 local function LoadTracks()
 	_tracks = MySQL.rawExecute.await(
 		"SELECT id, name as Name, distance as Distance, type as Type, checkpoints as Checkpoints, created_by as Creator FROM redline_tracks"
-	) or {}
+	)
 	for k, v in ipairs(_tracks) do
 		v.Checkpoints = json.decode(v.Checkpoints)
 		v.Fastest = MySQL.rawExecute.await(
-			"SELECT l.id, l.track, l.race, c.name as alias, l.lap_start, l.lap_end, l.laptime, l.car, l.owned FROM redline_track_history l LEFT JOIN character_app_profiles c ON c.sid = l.sid AND c.app = ? WHERE track = ? ORDER BY l.laptime ASC LIMIT 10",
+			"SELECT l.id, l.track, l.race, c.name as alias, l.lap_start, l.lap_end, l.laptime, l.car, l.owned FROM redline_track_history l LEFT JOIN character_app_profiles c ON c.sid = l.sid AND c.app = ? WHERE track = ? ORDER BY l.laptime ASC LIMIT " .. config.Racing.leaderboardSize,
 			{
 				'redline',
 				v.id,
 			}
-		) or {}
+		)
 	end
 end
 
@@ -94,67 +67,8 @@ AddEventHandler("Characters:Server:PlayerDropped", function(source, cData)
 end)
 
 AddEventHandler("Phone:Server:RegisterMiddleware", function()
-	RegisterItems()
-
-	exports['pulsar-pedinteraction']:VendorCreate("RaceGear", "poly", "Race Gear", false, {
-			coords = vector3(707.286, -967.542, 30.468),
-			length = 0.8,
-			width = 0.6,
-			options = {
-				heading = 185,
-				--debugPoly=true,
-				minZ = 28.97,
-				maxZ = 32.97,
-			},
-		}, _raceItems, "flag-checkered", "View Items", false, false, true, 60 * math.random(30, 60),
-		60 * math.random(240, 360))
-
-	LoadTracks()
-
-	exports['pulsar-core']:MiddlewareAdd("Characters:Spawning", function(source)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		local alias = char:GetData("Alias") or {}
-		local profiles = char:GetData("Profiles") or {}
-
-		if alias.redline then
-			local rid = MySQL.insert.await("INSERT INTO character_app_profiles (app, sid, name) VALUES(?, ?, ?)", {
-				"redline",
-				char:GetData("SID"),
-				alias.redline,
-			})
-
-			profiles.redline = {
-				sid = char:GetData("SID"),
-				app = "redline",
-				name = alias.redline,
-				picture = nil,
-				meta = {},
-			}
-
-			alias.redline = nil
-			char:SetData("Alias", alias)
-			char:SetData("Profiles", profiles)
-		end
-	end, 2)
-
-	exports['pulsar-core']:MiddlewareAdd("Characters:Spawning", function(source)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		TriggerLatentClientEvent("Phone:Client:Redline:StoreTracks", source, 50000, _tracks)
-		TriggerClientEvent("Phone:Client:Redline:Spawn", source, {
-			races = _races,
-		})
-	end, 2)
-	exports['pulsar-core']:MiddlewareAdd("Phone:UIReset", function(source)
-		TriggerLatentClientEvent("Phone:Client:Redline:StoreTracks", source, 50000, _tracks)
-		TriggerClientEvent("Phone:Client:Redline:Spawn", source, {
-			races = _races,
-		})
-	end, 2)
-end)
-
-function RegisterItems()
-	exports.ox_inventory:RegisterUse("alias_changer", "LSUNDG", function(source, item, itemData)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Inventory.Items:RegisterUse("alias_changer", "LSUNDG", function(source, item, itemData)
+		local char = plsr.Fetch:CharacterSource(source)
 		local _AppName = "redline"
 		if char ~= nil then
 			local profiles = char:GetData("Profiles") or {}
@@ -180,11 +94,11 @@ function RegisterItems()
 				})
 				MySQL.transaction(queries)
 
-				exports.ox_inventory:RemoveSlot(item.Owner, item.Name, 1, item.Slot, 1)
+				plsr.Inventory.Items:RemoveSlot(item.Owner, item.Name, 1, item.Slot, 1)
 
 				profiles[_AppName] = nil
 				char:SetData("Profiles", profiles)
-				exports['pulsar-hud']:Notification(source, "success", string.format(
+				plsr.Execute:Client(source, "Notification", "Success", string.format(
 					"Alias Cleared For %s %s (%s) For %s",
 					char:GetData("First"),
 					char:GetData("Last"),
@@ -194,12 +108,11 @@ function RegisterItems()
 			else
 			end
 		else
-			exports['pulsar-hud']:Notification(source, "error",
-				"An error has occured clearing your alias. Please contact IT.")
+			plsr.Execute:Client(source, "Notification", "Error", "An error has occured clearing your alias. Please contact IT.")
 		end
 	end)
-	exports.ox_inventory:RegisterUse("event_invite", "LSUNDG", function(source, item, itemData)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Inventory.Items:RegisterUse("event_invite", "LSUNDG", function(source, item, itemData)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			if item.MetaData.Event and _races[item.MetaData.Event] then
 				local sid = char:GetData("SID")
@@ -213,12 +126,12 @@ function RegisterItems()
 							end
 						end
 					end
-
+	
 					if
 						_races[item.MetaData.Event].class ~= "All"
 						and not CheckVehicleAgainstClass(_races[item.MetaData.Event].class, source)
 					then
-						exports['pulsar-phone']:NotificationAdd(
+						plsr.Phone.Notification:Add(
 							source,
 							"Unable to Join Race",
 							"This vehicle is not in the right class.",
@@ -234,11 +147,10 @@ function RegisterItems()
 							sid = sid,
 						}
 						TriggerClientEvent("Redline:Client:JoinedEvent", source, _races[item.MetaData.Event])
-						TriggerClientEvent("Phone:Client:Redline:JoinRace", -1, item.MetaData.Event, alias,
-							_races[item.MetaData.Event].racers[alias])
+						TriggerClientEvent("Phone:Client:Redline:JoinRace", -1, item.MetaData.Event, alias, _races[item.MetaData.Event].racers[alias])
 
-
-						exports['pulsar-phone']:NotificationAdd(
+						
+						plsr.Phone.Notification:Add(
 							source,
 							"Joined Event",
 							string.format("You Have Joined %s", _races[item.MetaData.Event].name),
@@ -250,33 +162,80 @@ function RegisterItems()
 
 						_raceInvites[item.MetaData.Event][string.lower(alias)] = nil
 
-						exports.ox_inventory:RemoveSlot(item.Owner, item.Name, 1, item.Slot, item.invType)
+						plsr.Inventory.Items:RemoveSlot(item.Owner, item.Name, 1, item.Slot, item.invType)
 					end
 				end
 			else
-				exports['pulsar-hud']:Notification(source, "error", "Invalid Event ID")
+				plsr.Execute:Client(source, "Notification", "Error", "Invalid Event ID")
 			end
 		end
 	end)
-end
 
-RegisterNetEvent('ox_inventory:ready', function()
-	if GetResourceState(GetCurrentResourceName()) == 'started' then
-		RegisterItems()
-	end
+	plsr.Vendor:Create("RaceGear", "poly", "Race Gear", false, {
+		coords = config.Racing.vendorLocation,
+		length = 0.8,
+		width = 0.6,
+		options = {
+			heading = 185,
+			--debugPoly=true,
+			minZ = 28.97,
+			maxZ = 32.97,
+		},
+	}, _raceItems, "flag-checkered", "View Items", false, false, true, 60 * math.random(table.unpack(config.Racing.vendorRestockMinMinutes)), 60 * math.random(table.unpack(config.Racing.vendorRestockMaxMinutes)))
+
+	LoadTracks()
+
+	plsr.Middleware:Add("Characters:Spawning", function(source)
+		local char = plsr.Fetch:CharacterSource(source)
+		local alias = char:GetData("Alias") or {}
+		local profiles = char:GetData("Profiles") or {}
+
+		if alias.redline then
+			local rid = MySQL.insert.await("INSERT INTO character_app_profiles (app, sid, name) VALUES(?, ?, ?)", {
+				"redline",
+				char:GetData("SID"),
+				alias.redline,
+			})
+
+			profiles.redline = {
+				sid = char:GetData("SID"),
+				app = "redline",
+				name = alias.redline,
+				picture = nil,
+				meta = {},
+			}
+
+			alias.redline = nil
+			char:SetData("Alias", alias)
+			char:SetData("Profiles", profiles)
+		end
+	end, 2)
+
+	plsr.Middleware:Add("Characters:Spawning", function(source)
+		local char = plsr.Fetch:CharacterSource(source)
+		TriggerLatentClientEvent("Phone:Client:Redline:StoreTracks", source, 50000, _tracks)
+		TriggerClientEvent("Phone:Client:Redline:Spawn", source, {
+			races = _races,
+		})
+	end, 2)
+	plsr.Middleware:Add("Phone:UIReset", function(source)
+		TriggerLatentClientEvent("Phone:Client:Redline:StoreTracks", source, 50000, _tracks)
+		TriggerClientEvent("Phone:Client:Redline:Spawn", source, {
+			races = _races,
+		})
+	end, 2)
 end)
 
 AddEventHandler("Phone:Server:UpdateProfile", function(source, data)
 	if data.app == "redline" then
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			local sid = char:GetData("SID")
-			local count = MySQL.scalar.await(
-				"SELECT COUNT(*) FROM character_app_profiles WHERE app = ? AND name = ? AND sid != ?", {
-					"redline",
-					data.name,
-					sid
-				})
+			local count = MySQL.scalar.await("SELECT COUNT(*) FROM character_app_profiles WHERE app = ? AND name = ? AND sid != ?", {
+				"redline",
+				data.name,
+				sid
+			})
 
 			if count == 0 then
 				MySQL.prepare.await(
@@ -289,7 +248,7 @@ AddEventHandler("Phone:Server:UpdateProfile", function(source, data)
 						json.encode(data.meta or {}),
 					}
 				)
-
+	
 				local profiles = char:GetData("Profiles") or {}
 				profiles["redline"] = {
 					sid = char:GetData("SID"),
@@ -300,7 +259,7 @@ AddEventHandler("Phone:Server:UpdateProfile", function(source, data)
 				}
 				char:SetData("Profiles", profiles)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "Alias already in use")
+				plsr.Execute:Client(source, "Notification", "Error", "Alias already in use")
 			end
 		end
 	end
@@ -312,7 +271,7 @@ function ReloadRaceTracks()
 end
 
 function LeaveAnyRace(source)
-	local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	local char = plsr.Fetch:CharacterSource(source)
 	if char ~= nil then
 		local alias = char:GetData("Profiles")?.redline?.name
 		if alias ~= nil then
@@ -426,11 +385,11 @@ function FinishRace(id, forceEnd)
 						pCrypto = pCrypto + _awardedAmount
 						updateFastest = true
 					else
-						for i = 1, 10 do
+						for i = 1, config.Racing.leaderboardSize do
 							if
 								_tracks[racedTrack].Fastest[i] == nil
 								or fastest.lap_end - fastest.lap_start
-								< _tracks[racedTrack].Fastest[i].lap_end - _tracks[racedTrack].Fastest[i].lap_start
+									< _tracks[racedTrack].Fastest[i].lap_end - _tracks[racedTrack].Fastest[i].lap_start
 							then
 								table.insert(_tracks[racedTrack].Fastest, i, {
 									time = fastest.time,
@@ -441,7 +400,7 @@ function FinishRace(id, forceEnd)
 									car = _races[key].racers[alias].car or "UNKNOWN",
 									owned = _races[key].racers[alias].isOwned or false,
 								})
-								_tracks[racedTrack].Fastest = table.slice(_tracks[racedTrack].Fastest, 1, 10)
+								_tracks[racedTrack].Fastest = table.slice(_tracks[racedTrack].Fastest, 1, config.Racing.leaderboardSize)
 								pCrypto = pCrypto + _awardedAmount
 								updateFastest = true
 								break
@@ -467,8 +426,7 @@ function FinishRace(id, forceEnd)
 			}
 
 			table.insert(queries, {
-				query =
-				"INSERT INTO redline_racer_history (sid, placing, winnings, vehicle, vehicle_class, track) VALUES(?, ?, ?, ?, ?, ?)",
+				query = "INSERT INTO redline_racer_history (sid, placing, winnings, vehicle, vehicle_class, track) VALUES(?, ?, ?, ?, ?, ?)",
 				values = {
 					_races[key].racers[alias].sid,
 					placing or -1,
@@ -496,7 +454,7 @@ function FinishRace(id, forceEnd)
 
 		if #laps > 0 then
 			local qry =
-			"INSERT INTO redline_track_history (track, race, sid, lap_start, lap_end, laptime, car, owned) VALUES "
+				"INSERT INTO redline_track_history (track, race, sid, lap_start, lap_end, laptime, car, owned) VALUES "
 			local params = {}
 			for k, v in ipairs(laps) do
 				table.insert(params, _races[key].track)
@@ -531,11 +489,11 @@ function FinishRace(id, forceEnd)
 	TriggerClientEvent("Phone:Client:Redline:FinishRace", -1, key, _races[key])
 	Payout(_races[key].total, _races[key].racers, _races[key].competitive)
 
-	for k, v in pairs(exports['pulsar-characters']:FetchAllCharacters()) do
+	for k, v in pairs(plsr.Fetch:AllCharacters()) do
 		if v ~= nil then
-			local dutyData = exports['pulsar-jobs']:DutyGet(v:GetData("Source"))
+			local dutyData = plsr.Jobs.Duty:Get(v:GetData("Source"))
 			if hasValue(v:GetData("States") or {}, "RACE_DONGLE") and (not dutyData or dutyData.Id ~= "police") then
-				exports['pulsar-phone']:NotificationAdd(
+				plsr.Phone.Notification:Add(
 					v:GetData("Source"),
 					string.format("%s", cancelled and "Event Cancelled" or "Event Finished"),
 					string.format("%s has %s", _races[key].name, cancelled and "been cancelled" or "finished"),
@@ -555,12 +513,11 @@ end
 function Payout(numRacers, results, isCompetitive)
 	for k, v in pairs(results) do
 		if isCompetitive and v.place ~= nil then
-			local char = exports['pulsar-characters']:FetchBySID(v.sid)
+			local char = plsr.Fetch:SID(v.sid)
 			if char ~= nil then
-				exports['pulsar-characters']:RepAdd(char:GetData("Source"), "Racing", 25 + (25 * (numRacers - v.place)))
+				plsr.Reputation.Modify:Add(char:GetData("Source"), "Racing", config.Racing.reputationBase + (config.Racing.reputationPerPlacement * (numRacers - v.place)))
 				if v.reward ~= nil and v.reward.crypto > 0 then
-					exports['pulsar-finance']:CryptoExchangeAdd(_awardedCoin, char:GetData("CryptoWallet"),
-						v.reward.crypto)
+					plsr.Crypto.Exchange:Add(_awardedCoin, char:GetData("CryptoWallet"), v.reward.crypto)
 				end
 			end
 		end
@@ -570,12 +527,12 @@ end
 -- TODO: Add check for player-owned vehicle
 RegisterServerEvent("Phone:Redline:FinishRace", function(nId, data, laps, plate, vehName)
 	local src = source
-	local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	local char = plsr.Fetch:CharacterSource(src)
 	local alias = char:GetData("Profiles").redline.name
 
 	local key = tostring(data)
 
-	local vehEnt = Entity(NetworkGetEntityFromNetworkId(nId)).state
+	local vehEnt = plsr.State.Entity(NetworkGetEntityFromNetworkId(nId))
 	_races[key].racers[alias] = {
 		laps = laps,
 		sid = char:GetData("SID"),
@@ -613,7 +570,7 @@ RegisterServerEvent("Phone:Redline:FinishRace", function(nId, data, laps, plate,
 end)
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:GetTrack", function(src, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:GetTrack", function(src, data, cb)
 		for k, v in ipairs(_tracks) do
 			if v.id == data then
 				cb(v)
@@ -623,8 +580,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb(nil)
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:SaveTrack", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:SaveTrack", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = char:GetData("Profiles").redline.name
 
 		if alias ~= nil then
@@ -656,8 +613,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:DeleteTrack", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:DeleteTrack", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = char:GetData("Profiles").redline.name
 
 		local myPerms = char:GetData("PhonePermissions")
@@ -707,8 +664,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:ResetTrackHistory", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:ResetTrackHistory", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = char:GetData("Profiles").redline.name
 		if alias ~= nil then
 			MySQL.query("DELETE FROM redline_track_history WHERE track = ?", {
@@ -721,8 +678,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:CreateRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:CreateRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if hasValue(char:GetData("States") or {}, "RACE_DONGLE") then
 			if char:GetData("Profiles")?.redline then
 				if (tonumber(data.laps) or 1) <= 0 then
@@ -744,7 +701,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					},
 				}
 				data.state = 0
-
+	
 				local tmp = nil
 				for k, v in ipairs(_tracks) do
 					if v.id == data.track then
@@ -752,7 +709,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 						break
 					end
 				end
-
+	
 				if tmp ~= nil then
 					local tId = MySQL.insert.await(
 						"INSERT INTO redline_race_history (name, buyin, host, track, class, race_config) VALUES(?, ?, ?, ?, ?, ?)",
@@ -766,15 +723,16 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 						}
 					)
 
-					if data.phasing == "checkpoints" and data.phasingAdv < 1 then
-						data.phasingAdv = 1
-						exports['pulsar-core']:LoggerInfo(
+					if data.phasing == "checkpoints" and data.phasingAdv < config.Racing.checkpointPhasingMin then
+						data.phasingAdv = config.Racing.checkpointPhasingMin
+						plsr.Logger:Info(
 							"Robbery",
 							string.format(
-								"%s %s (%s) Made A Race With Checkpoint Phasing With A Checkpoint Count Under 1 (%s)",
+								"%s %s (%s) Made A Race With Checkpoint Phasing With A Checkpoint Count Under %s (%s)",
 								char:GetData("First"),
 								char:GetData("Last"),
 								char:GetData("SID"),
+								config.Racing.checkpointPhasingMin,
 								data.phasingAdv
 							),
 							{
@@ -788,15 +746,16 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 								},
 							}
 						)
-					elseif data.phasing == "checkpoints" and data.phasingAdv > 10 then
-						data.phasingAdv = 10
-						exports['pulsar-core']:LoggerInfo(
+					elseif data.phasing == "checkpoints" and data.phasingAdv > config.Racing.checkpointPhasingMax then
+						data.phasingAdv = config.Racing.checkpointPhasingMax
+						plsr.Logger:Info(
 							"Robbery",
 							string.format(
-								"%s %s (%s) Made A Race With Checkpoint Phasing With A Checkpoint Count Over 10 (%s)",
+								"%s %s (%s) Made A Race With Checkpoint Phasing With A Checkpoint Count Over %s (%s)",
 								char:GetData("First"),
 								char:GetData("Last"),
 								char:GetData("SID"),
+								config.Racing.checkpointPhasingMax,
 								data.phasingAdv
 							),
 							{
@@ -810,15 +769,16 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 								},
 							}
 						)
-					elseif data.phasing == "timed" and data.phasingAdv < 3 then
-						data.phasingAdv = 3
-						exports['pulsar-core']:LoggerInfo(
+					elseif data.phasing == "timed" and data.phasingAdv < config.Racing.timedPhasingMin then
+						data.phasingAdv = config.Racing.timedPhasingMin
+						plsr.Logger:Info(
 							"Robbery",
 							string.format(
-								"%s %s (%s) Made A Race With Time Phasing With A Timer Less Than 3sec (%s)",
+								"%s %s (%s) Made A Race With Time Phasing With A Timer Less Than %ssec (%s)",
 								char:GetData("First"),
 								char:GetData("Last"),
 								char:GetData("SID"),
+								config.Racing.timedPhasingMin,
 								data.phasingAdv
 							),
 							{
@@ -832,15 +792,16 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 								},
 							}
 						)
-					elseif data.phasing == "timed" and data.phasingAdv > 60 then
-						data.phasingAdv = 60
-						exports['pulsar-core']:LoggerInfo(
+					elseif data.phasing == "timed" and data.phasingAdv > config.Racing.timedPhasingMax then
+						data.phasingAdv = config.Racing.timedPhasingMax
+						plsr.Logger:Info(
 							"Robbery",
 							string.format(
-								"%s %s (%s) Made A Race With Time Phasing With A Timer Greater Than 60sec (%s)",
+								"%s %s (%s) Made A Race With Time Phasing With A Timer Greater Than %ssec (%s)",
 								char:GetData("First"),
 								char:GetData("Last"),
 								char:GetData("SID"),
+								config.Racing.timedPhasingMax,
 								data.phasingAdv
 							),
 							{
@@ -862,16 +823,16 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					_races[key] = table.copy(data)
 					_raceInvites[key] = {}
 					_trackData[key] = table.copy(tmp)
-					for k, v in pairs(exports['pulsar-characters']:FetchAllCharacters()) do
+					for k, v in pairs(plsr.Fetch:AllCharacters()) do
 						if v ~= nil then
 							TriggerClientEvent("Phone:Client:Redline:CreateRace", v:GetData("Source"), data)
-							local dutyData = exports['pulsar-jobs']:DutyGet(v:GetData("Source"))
+							local dutyData = plsr.Jobs.Duty:Get(v:GetData("Source"))
 							if
 								v:GetData("Source") ~= src
 								and hasValue(v:GetData("States") or {}, "RACE_DONGLE")
 								and (not dutyData or dutyData.Id ~= "police")
 							then
-								exports['pulsar-phone']:NotificationAdd(
+								plsr.Phone.Notification:Add(
 									v:GetData("Source"),
 									string.format("New Event: %s", data.name),
 									string.format("%s created an event", char:GetData("Profiles").redline.name),
@@ -897,8 +858,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:CancelRace", function(src, key, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:CancelRace", function(src, key, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if
 			_races[key].host_id == char:GetData("SID")
 			and hasValue(char:GetData("States") or {}, "RACE_DONGLE")
@@ -915,8 +876,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:StartRace", function(src, key, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:StartRace", function(src, key, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if
 			_races[key].host_id == char:GetData("SID")
 			and hasValue(char:GetData("States") or {}, "RACE_DONGLE")
@@ -934,7 +895,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 				_races[key].class ~= "All"
 				and CheckVehicleAgainstClass(_races[key].class, char:GetData("Source")) == false
 			then
-				exports['pulsar-phone']:NotificationAdd(
+				plsr.Phone.Notification:Add(
 					char:GetData("Source"),
 					"Unable to Join Race",
 					"This vehicle is not in the right class.",
@@ -945,7 +906,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 				)
 				cb({ failed = true, message = "Unable to create race due to wrong vehicle class." })
 			else
-				if dist > 25 then
+				if dist > config.RaceStartDistance then
 					cb({ failed = true, message = "Too Far From Starting Point" })
 				else
 					_races[key].state = 1
@@ -954,7 +915,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 						_races[key].total += 1
 					end
 
-					exports['pulsar-robbery']:TriggerPDAlert(
+					plsr.Robbery:TriggerPDAlert(
 						src,
 						vector3(
 							_trackData[key].Checkpoints[1].coords.x,
@@ -967,7 +928,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 							icon = 227,
 							size = 0.9,
 							color = 31,
-							duration = (60 * 5),
+							duration = config.Racing.alertDuration,
 						}
 					)
 
@@ -980,8 +941,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:EndRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:EndRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local key = tostring(data)
 		if _races[key].host_id == char:GetData("SID") then
 			FinishRace(tonumber(data), true)
@@ -991,8 +952,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:JoinRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:JoinRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = char:GetData("Profiles")?.redline?.name
 
 		local key = tostring(data)
@@ -1021,7 +982,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 				_races[key].class ~= "All"
 				and CheckVehicleAgainstClass(_races[key].class, char:GetData("Source")) == false
 			then
-				exports['pulsar-phone']:NotificationAdd(
+				plsr.Phone.Notification:Add(
 					char:GetData("Source"),
 					"Unable to Join Race",
 					"This vehicle is not in the right class.",
@@ -1044,8 +1005,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:LeaveRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:LeaveRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = char:GetData("Profiles").redline.name
 		local key = tostring(data)
 		if alias ~= nil and _races[key].state == 0 then
@@ -1057,24 +1018,23 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:RemoveRacer", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:RemoveRacer", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 			local alias = char:GetData("Profiles")?.redline?.name
 			local key = tostring(data.id)
 			if alias ~= nil and _races[key].state == 0 and _races[key].host_id == sid then
 				if data.alias ~= alias then
-					local tSid = MySQL.scalar.await('SELECT sid FROM character_app_profiles WHERE app = ? AND name = ?',
-						{
-							'redline',
-							data.alias
-						})
+					local tSid = MySQL.scalar.await('SELECT sid FROM character_app_profiles WHERE app = ? AND name = ?', {
+						'redline',
+						data.alias
+					})
 
 					if tSid ~= nil then
 						_races[key].racers[data.alias] = nil
 
-						local tChar = exports['pulsar-characters']:FetchBySID(tSid)
+						local tChar = plsr.Fetch:SID(tSid)
 						if tChar ~= nil then
 							TriggerClientEvent("Phone:Client:Redline:RemovedFromRace", tChar:GetData("Source"))
 						end
@@ -1093,31 +1053,29 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:SendInvite", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:SendInvite", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 			local alias = char:GetData("Profiles")?.redline?.name
 			local key = tostring(data.id)
 			if alias ~= nil and _races[key].state == 0 and _races[key].host_id == sid then
 				if data.alias ~= alias and not _raceInvites[key][string.lower(data.alias)] then
-					local tSid = MySQL.scalar.await('SELECT sid FROM character_app_profiles WHERE app = ? AND name = ?',
-						{
-							'redline',
-							string.lower(data.alias)
-						})
+					local tSid = MySQL.scalar.await('SELECT sid FROM character_app_profiles WHERE app = ? AND name = ?', {
+						'redline',
+						string.lower(data.alias)
+					})
 
 					if tSid ~= nil then
-						local tChar = exports['pulsar-characters']:FetchBySID(tSid)
+						local tChar = plsr.Fetch:SID(tSid)
 						if tChar ~= nil then
 							_raceInvites[key][string.lower(data.alias)] = {
 								id = key,
 								sender = alias,
 								event = _races[key].name,
-								expires = os.time() + (60 * 5),
+								expires = os.time() + config.Racing.inviteExpiry,
 							}
-							TriggerClientEvent("Phone:Client:Redline:ReceiveInvite", tChar:GetData("Source"),
-								_raceInvites[key][string.lower(data.alias)])
+							TriggerClientEvent("Phone:Client:Redline:ReceiveInvite", tChar:GetData("Source"), _raceInvites[key][string.lower(data.alias)])
 							cb(true)
 						else
 							cb(false)
@@ -1134,8 +1092,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:AcceptInvite", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:AcceptInvite", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 			local alias = char:GetData("Profiles")?.redline?.name
@@ -1155,7 +1113,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 						_races[key].class ~= "All"
 						and not CheckVehicleAgainstClass(_races[key].class, src)
 					then
-						exports['pulsar-phone']:NotificationAdd(
+						plsr.Phone.Notification:Add(
 							src,
 							"Unable to Join Race",
 							"This vehicle is not in the right class.",
@@ -1183,8 +1141,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Redline:DeclineInvite", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Redline:DeclineInvite", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 			local alias = char:GetData("Profiles")?.redline?.name
@@ -1203,8 +1161,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 end)
 
 function CheckVehicleAgainstClass(class, _src)
-	local vehEnt = Entity(GetVehiclePedIsIn(GetPlayerPed(_src), false))
-	if vehEnt.state.VIN and vehEnt.state.Owned and class == vehEnt.state.Class then
+	local vehEnt = plsr.State.Entity(GetVehiclePedIsIn(GetPlayerPed(_src), false))
+	if vehEnt.VIN and vehEnt.Owned and class == vehEnt.Class then
 		return true
 	end
 	return false

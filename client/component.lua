@@ -34,275 +34,276 @@ local function DisableKeys()
 	end)
 end
 
-exports("Open", function()
-	_limited = false
-	_payphone = false
-	exports.ox_inventory:closeInventory()
-	exports['pulsar-hud']:InteractionHide()
-	LocalPlayer.state.phoneOpen = true
-	DisplayRadar(true)
-	exports['pulsar-hud']:ShiftLocation(true)
-	PhonePlayIn()
-	SendNUIMessage({ type = "PHONE_VISIBLE" })
-	SetNuiFocus(true, true)
-end)
+PHONE = {
+	Open = function(self)
+		_limited = false
+		_payphone = false
+		plsr.Inventory.Close:All()
+		plsr.Interaction:Hide()
+		plsr.State.flags.phoneOpen = true
+		DisplayRadar(true)
+		plsr.Hud:ShiftLocation(true)
+		PhonePlayIn()
+		SendNUIMessage({ type = "PHONE_VISIBLE" })
+		SetNuiFocus(true, true)
+	end,
+	OpenLimited = function(self)
+		_limited = true
+		_payphone = false
+		plsr.Inventory.Close:All()
+		plsr.Interaction:Hide()
+		plsr.State.flags.phoneOpen = true
+		PhonePlayIn()
+		SendNUIMessage({ type = "PHONE_VISIBLE_LIMITED" })
+		SetNuiFocus(true, true)
+	end,
+	OpenPayphone = function(self)
+		_limited = true
+		_payphone = true
+		plsr.Inventory.Close:All()
+		plsr.Interaction:Hide()
+		plsr.State.flags.phoneOpen = true
+		PhonePlayIn()
+		SendNUIMessage({ type = "PHONE_VISIBLE_LIMITED" })
+		SetNuiFocus(true, true)
+	end,
+	Close = function(self, forced, doJankyStuff)
+		plsr.State.flags.phoneOpen = false
+		_openCd = true
+		if not doJankyStuff then
+			plsr.Phone:ResetRoute()
+		end
+		if forced then
+			SendNUIMessage({ type = "PHONE_NOT_VISIBLE_FORCED" })
+		else
+			SendNUIMessage({ type = "PHONE_NOT_VISIBLE" })
+		end
+		if _limited then
+			plsr.Phone.Call:End()
+		end
+		SendNUIMessage({ type = "ALERTS_RESET" })
+		if not IsPedInAnyVehicle(PlayerPedId(), true) then
+			DisplayRadar(plsr.State.flags.loggedIn and hasValue(plsr.State.character.States, "GPS"))
+		end
+		plsr.Hud:ShiftLocation(plsr.State.flags.loggedIn and hasValue(plsr.State.character.States, "GPS"))
+		if not plsr.Phone.Call:Status() or _limited then
+			PhonePlayOut()
+		end
+		SetNuiFocus(false, false)
+		SetNuiFocusKeepInput(false)
+		TriggerEvent("UI:Client:Close", "phone")
 
-exports("OpenLimited", function()
-	_limited = true
-	_payphone = false
-	exports.ox_inventory:closeInventory()
-	exports['pulsar-hud']:InteractionHide()
-	LocalPlayer.state.phoneOpen = true
-	PhonePlayIn()
-	SendNUIMessage({ type = "PHONE_VISIBLE_LIMITED" })
-	SetNuiFocus(true, true)
-end)
-
-exports("OpenPayphone", function()
-	_limited = true
-	_payphone = true
-	exports.ox_inventory:closeInventory()
-	exports['pulsar-hud']:InteractionHide()
-	LocalPlayer.state.phoneOpen = true
-	PhonePlayIn()
-	SendNUIMessage({ type = "PHONE_VISIBLE_LIMITED" })
-	SetNuiFocus(true, true)
-end)
-
-exports("Close", function(forced, doJankyStuff)
-	LocalPlayer.state.phoneOpen = false
-	_openCd = true
-	if not doJankyStuff then
-		exports['pulsar-phone']:ResetRoute()
-	end
-	if forced then
-		SendNUIMessage({ type = "PHONE_NOT_VISIBLE_FORCED" })
-	end
-	if _limited then
-		exports['pulsar-phone']:CallEnd()
-	end
-	SendNUIMessage({ type = "ALERTS_RESET" })
-	if not IsPedInAnyVehicle(PlayerPedId(), true) then
-		DisplayRadar(LocalPlayer.state.Character and hasValue(LocalPlayer.state.Character:GetData("States"), "GPS"))
-	end
-	exports['pulsar-hud']:ShiftLocation(LocalPlayer.state.Character and
-		hasValue(LocalPlayer.state.Character:GetData("States"), "GPS"))
-	if not exports['pulsar-phone']:CallStatus() or _limited then
-		PhonePlayOut()
-	end
-	SetNuiFocus(false, false)
-	SetNuiFocusKeepInput(false)
-	TriggerEvent("UI:Client:Close", "phone")
-
-	_limited = false
-end)
-
-exports("IsOpen", function()
-	return LocalPlayer.state.phoneOpen
-end)
-
-exports("ResetRoute", function()
-	SendNUIMessage({ type = "CLEAR_HISTORY" })
-end)
-
-exports("ReceiveShare", function(data)
-	SendNUIMessage({ type = "RECEIVE_SHARE", data = data })
-end)
-
-exports("PermissionsLoad", function(p)
-	SendNUIMessage({
-		type = "LOAD_PERMS",
-		data = p,
-	})
-end)
-
-exports("IsAppUsable", function(app)
-	if type(app) == "table" then
-		return true
-	elseif PHONE_APPS == nil then
-		return false
-	else
+		_limited = false
+	end,
+	IsOpen = function(self)
+		return plsr.State.flags.phoneOpen
+	end,
+	ResetRoute = function(self)
+		SendNUIMessage({ type = "CLEAR_HISTORY" })
+	end,
+	-- InsertUSB = function(self, data)
+	-- 	SendNUIMessage({ type = "INSTALL_USB", data = data })
+	-- end,
+	-- RemoveUSB = function(self)
+	-- 	SendNUIMessage({ type = "REMOVE_USB" })
+	-- end,
+	ReceiveShare = function(self, data)
+		SendNUIMessage({ type = "RECEIVE_SHARE", data = data })
+	end,
+	Permissions = {
+		Load = function(self, p)
+			SendNUIMessage({
+				type = "LOAD_PERMS",
+				data = p,
+			})
+		end,
+	},
+	-- shared by IsAppUsable and the store catalog's unlocked-flag lookup -
+	-- mirrors server component.lua's IsAppUnlocked, keep both in sync
+	IsAppUnlocked = function(self, app)
+		if PHONE_APPS == nil then
+			return false
+		end
 		local appdata = PHONE_APPS[app]
-		return appdata ~= nil
-			and hasValue(LocalPlayer.state.Character:GetData("Apps").installed, app)
-			and (
-				not appdata.restricted
-				or (
-					(
-						appdata.restricted.job
-						and exports['pulsar-jobs']:HasJob(
-							appdata.restricted.job,
-							appdata.restricted.workplace,
-							appdata.restricted.grade
-						)
-					)
-					or (appdata.restricted.state and hasValue(
-						LocalPlayer.state.Character:GetData("States"),
-						appdata.restricted.state
-					))
-					or (appdata.restricted.jobPermission and exports['pulsar-jobs']:HasJob(
-						appdata.restricted.job,
-						appdata.restricted.workplace,
-						appdata.restricted.grade,
-						nil,
-						false,
-						appdata.restricted.jobPermission
-					))
-					or (appdata.restricted.phonePermission and exports['pulsar-phone']:PermissionsHasPermission(
-						appdata.restricted.phonePermission.app,
-						appdata.restricted.phonePermission.permission
-					))
-					or (
-						appdata.restricted.repuation
-						and exports['pulsar-characters']:RepHasLevel(
-							appdata.restricted.repuation,
-							appdata.restricted.repuationAmount or 0
-						)
-					)
-				)
-			)
-	end
-end)
+		if appdata == nil then
+			return false
+		end
+		if not appdata.restricted then
+			return true
+		end
+		local r = appdata.restricted
+		if r.job then
+			for jobId, gradeLevel in pairs(r.job) do
+				if plsr.Jobs.Permissions:HasJob(jobId, r.workplace, r.grade, gradeLevel) then
+					return true
+				end
+				if r.jobPermission and plsr.Jobs.Permissions:HasJob(jobId, r.workplace, r.grade, gradeLevel, false, r.jobPermission) then
+					return true
+				end
+			end
+		end
+		if r.state and hasValue(plsr.State.character.States, r.state) then
+			return true
+		end
+		if r.phonePermission and plsr.Phone.Permissions:HasPermission(r.phonePermission.app, r.phonePermission.permission) then
+			return true
+		end
+		if r.repuation and plsr.Reputation:HasLevel(r.repuation, r.repuationAmount or 0) then
+			return true
+		end
+		return false
+	end,
+	IsAppUsable = function(self, app)
+		if type(app) == "table" then
+			return true
+		elseif PHONE_APPS == nil then
+			return false
+		else
+			return PHONE_APPS[app] ~= nil
+				and hasValue(plsr.State.character.Apps.installed, app)
+				and plsr.Phone:IsAppUnlocked(app)
+		end
+	end,
+	Data = {
+		Set = function(self, key, data)
+			SendNUIMessage({ type = "SET_DATA", data = { type = key, data = data } })
+		end,
+		Add = function(self, type, data, key)
+			SendNUIMessage({ type = "ADD_DATA", data = { type = type, data = data, key = key } })
+		end,
+		Update = function(self, type, id, data)
+			SendNUIMessage({ type = "UPDATE_DATA", data = { type = type, id = id, data = data } })
+		end,
+		Remove = function(self, key, id)
+			SendNUIMessage({ type = "REMOVE_DATA", data = { type = key, id = id } })
+		end,
+		Reset = function(self)
+			SendNUIMessage({ type = "RESET_DATA" })
+		end,
+	},
+	Notification = {
+		Add = function(self, title, description, time, duration, app, actions, notifData)
+			if
+				not plsr.State.flags.loggedIn or not hasValue(plsr.State.character.States, "PHONE")
+			then
+				return
+			end
 
-exports("DataSet", function(key, data)
-	SendNUIMessage({ type = "SET_DATA", data = { type = key, data = data } })
-end)
+			local appUsable = plsr.Phone:IsAppUsable(app)
+			if
+				_settings.notifications
+				and (type(app) == "table" or (appUsable and not _settings.appNotifications[app]) or app == "comanager")
+				and not plsr.Jail:IsJailed()
+			then
+				SendNUIMessage({
+					type = "NOTIF_ADD",
+					data = {
+						notification = {
+							title = title,
+							description = description,
+							time = time,
+							duration = duration,
+							app = app,
+							action = actions,
+							data = notifData,
+							show = true,
+						},
+					},
+				})
 
-exports("DataAdd", function(type, data, key)
-	SendNUIMessage({ type = "ADD_DATA", data = { type = type, data = data, key = key } })
-end)
-
-exports("DataUpdate", function(type, id, data)
-	SendNUIMessage({ type = "UPDATE_DATA", data = { type = type, id = id, data = data } })
-end)
-
-exports("DataRemove", function(key, id)
-	SendNUIMessage({ type = "REMOVE_DATA", data = { type = key, id = id } })
-end)
-
-exports("DataReset", function()
-	SendNUIMessage({ type = "RESET_DATA" })
-end)
-
-exports("NotificationAdd", function(title, description, time, duration, app, actions, notifData)
-	if not LocalPlayer.state.loggedIn or exports.ox_inventory:GetItemCount('phone') == 0 then
-		return
-	end
-
-	local appUsable = exports['pulsar-phone']:IsAppUsable(app)
-	if
-		_settings.notifications
-		and (type(app) == "table" or (appUsable and not _settings.appNotifications[app]) or app == "comanager")
-		and not exports['pulsar-jail']:IsJailed()
-	then
-		SendNUIMessage({
-			type = "NOTIF_ADD",
-			data = {
-				notification = {
+				if not plsr.State.flags.phoneOpen and (plsr.Phone:IsAppUsable(app)) then
+					plsr.Sounds.Play:One(_settings.texttone, 0.1 * (_settings.volume / 100))
+				end
+			end
+		end,
+		AddWithId = function(self, id, title, description, time, duration, app, actions, notifData)
+			SendNUIMessage({
+				type = "NOTIF_ADD",
+				data = {
+					notification = {
+						id = id,
+						title = title,
+						description = description,
+						time = time,
+						duration = duration,
+						app = app,
+						action = actions,
+						data = notifData,
+						show = true,
+					},
+				},
+			})
+		end,
+		Update = function(self, id, title, description)
+			SendNUIMessage({
+				type = "NOTIF_UPDATE",
+				data = {
+					id = id,
 					title = title,
 					description = description,
-					time = time,
-					duration = duration,
-					app = app,
-					action = actions,
-					data = notifData,
-					show = true,
 				},
+			})
+		end,
+		Remove = function(self, id)
+			SendNUIMessage({
+				type = "NOTIF_HIDE",
+				data = {
+					id = id,
+				},
+			})
+		end,
+		Reset = function(self)
+			SendNUIMessage({ type = "NOTIF_DISMISS_ALL" })
+		end,
+	},
+	SetExpanded = function(self, state)
+		SendNUIMessage({
+			type = "SET_EXPANDED",
+			data = {
+				expanded = state,
 			},
 		})
+	end,
+	Permissions = {
+		HasPermission = function(self, app, permission)
+			local myPerms = plsr.State.character.PhonePermissions
+			if not app or not permission then
+				return false
+			else
+				return PhonePermissions[app][permission]
+			end
+		end,
+	},
+}
 
-		if not LocalPlayer.state.phoneOpen and (exports['pulsar-phone']:IsAppUsable(app)) then
-			exports["pulsar-sounds"]:PlayOne(_settings.texttone, 0.1 * (_settings.volume / 100))
-		end
-	end
-end)
-
-exports("NotificationAddWithId", function(id, title, description, time, duration, app, actions, notifData)
-	SendNUIMessage({
-		type = "NOTIF_ADD",
-		data = {
-			notification = {
-				id = id,
-				title = title,
-				description = description,
-				time = time,
-				duration = duration,
-				app = app,
-				action = actions,
-				data = notifData,
-				show = true,
-			},
-		},
-	})
-end)
-
-exports("NotificationUpdate", function(id, title, description)
-	SendNUIMessage({
-		type = "NOTIF_UPDATE",
-		data = {
-			id = id,
-			title = title,
-			description = description,
-		},
-	})
-end)
-
-exports("NotificationRemove", function(id)
-	SendNUIMessage({
-		type = "NOTIF_HIDE",
-		data = {
-			id = id,
-		},
-	})
-end)
-
-exports("NotificationReset", function()
-	SendNUIMessage({ type = "NOTIF_DISMISS_ALL" })
-end)
-
-exports("SetExpanded", function(state)
-	SendNUIMessage({
-		type = "SET_EXPANDED",
-		data = {
-			expanded = state,
-		},
-	})
-end)
-
-exports("PermissionsHasPermission", function(app, permission)
-	local myPerms = LocalPlayer.state.Character:GetData("PhonePermissions")
-	if not app or not permission then
-		return false
-	else
-		return PhonePermissions[app][permission]
-	end
+AddEventHandler("Proxy:Shared:RegisterReady", function()
+	exports["pulsar_core"]:RegisterComponent("Phone", PHONE)
 end)
 
 RegisterNetEvent("Phone:Client:Close", function()
-	exports['pulsar-phone']:Close()
+	plsr.Phone:Close()
 end)
 
 RegisterNUICallback("ClosePhone", function(data, cb)
 	cb("OK")
-	exports['pulsar-phone']:Close()
+	plsr.Phone:Close()
 end)
 
 RegisterNetEvent("Phone:Client:Notifications:Add", function(title, description, time, duration, app, actions, notifData)
-	exports['pulsar-phone']:NotificationAdd(title, description, time, duration, app, actions, notifData)
+	plsr.Phone.Notification:Add(title, description, time, duration, app, actions, notifData)
 end)
 
 RegisterNetEvent(
 	"Phone:Client:Notifications:AddWithId",
 	function(id, title, description, time, duration, app, actions, notifData)
-		exports['pulsar-phone']:NotificationAddWithId(id, title, description, time, duration, app, actions,
-			notifData)
+		plsr.Phone.Notification:AddWithId(id, title, description, time, duration, app, actions, notifData)
 	end
 )
 
 RegisterNetEvent("Phone:Client:Notifications:Update", function(id, title, description)
-	exports['pulsar-phone']:NotificationUpdate(id, title, description)
+	plsr.Phone.Notification:Update(id, title, description)
 end)
 
 RegisterNetEvent("Phone:Client:Notifications:Remove", function(id)
-	exports['pulsar-phone']:NotificationRemove(id)
+	plsr.Phone.Notification:Remove(id)
 end)

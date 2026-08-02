@@ -28,17 +28,16 @@ RegisterNetEvent("Phone:Client:Messages:Notify", function(message)
 	})
 
 	if message.contact then
-		exports['pulsar-phone']:NotificationAdd(message.contact.name, message.message, message.time, 6000,
-			"messages", {
-				view = "convo/" .. message.number,
-			}, nil)
+		plsr.Phone.Notification:Add(message.contact.name, message.message, message.time, 6000, "messages", {
+			view = "convo/" .. message.number,
+		}, nil)
 	else
-		exports['pulsar-phone']:NotificationAdd(message.number, message.message, message.time, 6000, "messages", {
+		plsr.Phone.Notification:Add(message.number, message.message, message.time, 6000, "messages", {
 			view = "convo/" .. message.number,
 		}, nil)
 	end
 
-	if not LocalPlayer.state.phoneOpen then
+	if not plsr.State.flags.phoneOpen then
 		SendNUIMessage({
 			type = "ADD_UNREAD",
 			data = {
@@ -50,20 +49,20 @@ RegisterNetEvent("Phone:Client:Messages:Notify", function(message)
 end)
 
 RegisterNUICallback("Messages:InitLoad", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Message:InitLoad", {}, cb)
+	plsr.Callbacks:ServerCallback("Phone:Message:InitLoad", {}, cb)
 end)
 
 RegisterNUICallback("Messages:LoadTexts", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Messages:LoadTexts", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Messages:LoadTexts", data, cb)
 end)
 
 RegisterNUICallback("SendMessage", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Messages:SendMessage", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Messages:SendMessage", data, cb)
 end)
 RegisterNUICallback("ReadConvo", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:Messages:ReadConvo", data)
+	plsr.Callbacks:ServerCallback("Phone:Messages:ReadConvo", data)
 end)
 RegisterNUICallback("DeleteConvo", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Messages:DeleteConvo", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Messages:DeleteConvo", data, cb)
 end)

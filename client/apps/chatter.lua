@@ -32,11 +32,11 @@ RegisterNetEvent("Phone:Client:Chatter:Notify", function(message, gData)
 		data = message,
 	})
 
-	exports['pulsar-phone']:NotificationAdd(gData.label, message.message, message.timestamp, 6000, "chatter", {
+	plsr.Phone.Notification:Add(gData.label, message.message, message.timestamp, 6000, "chatter", {
 		view = "channel/" .. message.group,
 	}, nil)
 
-	if not LocalPlayer.state.phoneOpen then
+	if not plsr.State.flags.phoneOpen then
 		SendNUIMessage({
 			type = "ADD_UNREAD",
 			data = {
@@ -55,10 +55,9 @@ RegisterNetEvent("Phone:Client:Chatter:ReceiveInvite", function(invite)
 		},
 	})
 
-	exports['pulsar-phone']:NotificationAdd(invite.label, "You Were Invited To A Group", invite.timestamp, 6000,
-		"chatter", {
-			view = "join/" .. invite.group,
-		}, nil)
+	plsr.Phone.Notification:Add(invite.label, "You Were Invited To A Group", invite.timestamp, 6000, "chatter", {
+		view = "join/" .. invite.group,
+	}, nil)
 end)
 
 RegisterNetEvent("Phone:Client:Chatter:GroupDeleted", function(id)
@@ -80,33 +79,33 @@ RegisterNetEvent("Phone:Client:Chatter:UpdateGroup", function(data)
 end)
 
 RegisterNUICallback("Chatter:GetMessageCount", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Chatter:GetMessageCount", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Chatter:GetMessageCount", data, cb)
 end)
 RegisterNUICallback("Chatter:LoadMessages", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Chatter:LoadMessages", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Chatter:LoadMessages", data, cb)
 end)
 RegisterNUICallback("Chatter:SendMessage", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Chatter:SendMessage", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Chatter:SendMessage", data, cb)
 end)
 RegisterNUICallback("Chatter:CreateGroup", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Chatter:CreateGroup", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Chatter:CreateGroup", data, cb)
 end)
 RegisterNUICallback("Chatter:DeleteGroup", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Chatter:DeleteGroup", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Chatter:DeleteGroup", data, cb)
 end)
 RegisterNUICallback("Chatter:LeaveGroup", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Chatter:LeaveGroup", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Chatter:LeaveGroup", data, cb)
 end)
 RegisterNUICallback("Chatter:UpdateGroup", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Chatter:UpdateGroup", data, cb)
+	plsr.Callbacks:ServerCallback("Chatter:UpdateGroup", data, cb)
 end)
 
 RegisterNUICallback("Chatter:Invite:Send", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Chatter:Invite:Send", data, cb)
+	plsr.Callbacks:ServerCallback("Chatter:Invite:Send", data, cb)
 end)
 RegisterNUICallback("Chatter:Invite:Accept", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Chatter:Invite:Accept", data, cb)
+	plsr.Callbacks:ServerCallback("Chatter:Invite:Accept", data, cb)
 end)
 RegisterNUICallback("Chatter:Invite:Decline", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Chatter:Invite:Decline", data, cb)
+	plsr.Callbacks:ServerCallback("Chatter:Invite:Decline", data, cb)
 end)

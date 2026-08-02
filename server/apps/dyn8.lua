@@ -1,53 +1,61 @@
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
+
 local _selling = {}
 local _pendingLoanAccept = {}
 
-local govCut = 5
-local commissionCut = 5
-local companyCut = 10
+-- NOTE: these three were dead locals even before this move - nothing in this file reads them.
+-- Left here (now sourced from config) rather than silently deleted, since they look like an
+-- unfinished transaction-fee feature, not confirmed-dead code.
+local govCut = config.Dyn8.govCutPercent
+local commissionCut = config.Dyn8.commissionCutPercent
+local companyCut = config.Dyn8.companyCutPercent
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Dyn8:Search", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Dyn8:Search", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char then
-			local whereClause = "label LIKE ?"
-			local params = { "%" .. data .. "%" }
+			local qry = {
+				label = {
+					["$regex"] = data,
+					["$options"] = "i",
+				},
+				sold = false,
+			}
 
-			if Player(source).state.onDuty ~= 'realestate' then
-				whereClause = whereClause .. " AND sold = 0"
+			if plsr.State:Player(source).onDuty == 'realestate' then
+				qry = {
+					label = {
+						["$regex"] = data,
+						["$options"] = "i",
+					},
+				}
 			end
 
-			exports.oxmysql:execute('SELECT * FROM properties WHERE ' .. whereClause .. ' LIMIT 80', params,
-				function(results)
-					if not results then
+			plsr.Database:Query(
+				"SELECT `id`, `data` FROM `properties` WHERE `label` LIKE ? LIMIT " .. config.Pagination.dyn8SearchLimit,
+				{ "%" .. data .. "%" },
+				function(success, results)
+					if not success then
 						cb(false)
 						return
 					end
 
-					local convertedResults = {}
-					for k, v in ipairs(results) do
-						local property = {
-							_id = v.id,
-							id = v.id,
-							type = v.type,
-							label = v.label,
-							price = v.price,
-							sold = v.sold == 1,
-							owner = v.owner,
-							location = v.location and json.decode(v.location) or nil,
-							upgrades = v.upgrades and json.decode(v.upgrades) or nil,
-							locked = v.locked == 1,
-							keys = v.keys and json.decode(v.keys) or nil,
-							data = v.data and json.decode(v.data) or nil,
-							foreclosed = v.foreclosed == 1,
-							soldAt = v.soldAt
-						}
-						table.insert(convertedResults, property)
+					local properties = {}
+					for k, row in ipairs(results) do
+						local ok, decoded = pcall(json.decode, row.data)
+						if ok and type(decoded) == "table" then
+							decoded._id = row.id
+							table.insert(properties, decoded)
+						end
 					end
-
-					cb(convertedResults)
-				end)
+					cb(properties)
+				end
+			)
 		else
 			cb(false)
 		end
 	end)
 end)
+
+
+

@@ -63,7 +63,7 @@ function newPhoneProp()
 	AttachEntityToEntity(phoneProp, myPedId, bone, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1, 1, 0, 0, 2, 1)
 
 	CreateThread(function()
-		while LocalPlayer.state.phoneOpen or _call ~= nil do
+		while plsr.State.flags.phoneOpen or _call ~= nil do
 			Wait(3)
 		end
 		deletePhone()
@@ -121,14 +121,14 @@ function PhonePlayAnim(status, freeze, force)
 end
 
 function PhonePlayOut()
-	if not exports['pulsar-phone']:CallStatus() then
+	if not plsr.Phone.Call:Status() then
 		PhonePlayAnim("out")
 	end
 end
 
 function PhonePlayText()
 	CreateThread(function()
-		while LocalPlayer.state.phoneOpen do
+		while plsr.State.flags.phoneOpen do
 			if
 				(
 					not IsEntityPlayingAnim(PlayerPedId(), "cellphone@", "cellphone_text_in", 3)
@@ -136,7 +136,7 @@ function PhonePlayText()
 						IsPedInAnyVehicle(myPedId, false)
 						and not IsEntityPlayingAnim(PlayerPedId(), "anim@cellphone@in_car@ps", "cellphone_text_in", 3)
 					)
-				) and not exports['pulsar-phone']:CallStatus()
+				) and not plsr.Phone.Call:Status()
 			then
 				PhonePlayAnim("text", false, true)
 			end
@@ -148,7 +148,7 @@ end
 function PhonePlayCall(freeze)
 	CreateThread(function()
 		while _call ~= nil and not _call.onHold do
-			if not LocalPlayer.state.phoneOpen then
+			if not plsr.State.flags.phoneOpen then
 				if
 					not IsEntityPlayingAnim(PlayerPedId(), "cellphone@", "cellphone_text_to_call", 3)
 					or (
@@ -170,7 +170,7 @@ function PhonePlayCall(freeze)
 end
 
 function PhoneCallToText()
-	if not exports['pulsar-phone']:CallStatus() then
+	if not plsr.Phone.Call:Status() then
 		PhonePlayAnim("text", false, true)
 	end
 end
@@ -180,7 +180,7 @@ function PhoneTextToCall()
 end
 
 function PhonePlayIn()
-	if not exports['pulsar-phone']:CallStatus() then
+	if not plsr.Phone.Call:Status() then
 		PhonePlayAnim("text", false, true)
 	end
 end

@@ -1,25 +1,27 @@
 AddEventHandler("Phone:Server:RegisterMiddleware", function()
-	exports['pulsar-core']:MiddlewareAdd("Phone:Spawning", function(source, char)
+    plsr.Middleware:Add("Phone:Spawning", function(source, char)
 		return {
 			{
 				type = "jobs",
-				data = exports['pulsar-labor']:GetJobs(),
+				data = plsr.Labor.Get:Jobs(),
 			},
 			{
 				type = "workGroups",
-				data = exports['pulsar-labor']:GetGroups(),
+				data = plsr.Labor.Get:Groups(),
 			},
 		}
 	end)
 end)
 
+PHONE.Labor = {}
+
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Labor:CreateWorkgroup", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		local myDuty = Player(source).state.onDuty
+	plsr.Callbacks:RegisterServerCallback("Phone:Labor:CreateWorkgroup", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
+		local myDuty = plsr.State:Player(source).onDuty
 
 		if myDuty and (myDuty == "police" or myDuty == "ems") then
-			exports['pulsar-core']:LoggerTrace(
+			plsr.Logger:Trace(
 				"Labor",
 				string.format(
 					"%s %s (%s) Attempted To Create Workgroup (%s)",
@@ -29,36 +31,34 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					myDuty
 				)
 			)
-			-- DropPlayer(
-			-- 	source,
-			-- 	string.format("%s", "Double dipping jobs is not allowed. Don't do it again - instead, go off duty.")
-			-- )
-			exports['pulsar-hud']:Notification(source, "error",
-				'Double dipping jobs is not allowed. Instead, go off duty.')
+			DropPlayer(
+				source,
+				string.format("%s", "Double dipping jobs is not allowed. Don't do it again - instead, go off duty.")
+			)
 			cb(false)
 		else
 			if char:GetData("ICU") ~= nil and not char:GetData("ICU").Released then
 				cb(false)
 			else
-				cb(exports['pulsar-labor']:CreateWorkgroup(source))
+				cb(plsr.Labor.Workgroups:Create(source))
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Labor:DisbandWorkgroup", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Labor:DisbandWorkgroup", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char:GetData("ICU") ~= nil and not char:GetData("ICU").Released then
 			cb(false)
 		else
-			cb(exports['pulsar-labor']:DisbandWorkgroup(source, true))
+			cb(plsr.Labor.Workgroups:Disband(source, true))
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Labor:JoinWorkgroup", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		local myDuty = Player(source).state.onDuty
+	plsr.Callbacks:RegisterServerCallback("Phone:Labor:JoinWorkgroup", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
+		local myDuty = plsr.State:Player(source).onDuty
 		if myDuty and (myDuty == "police" or myDuty == "ems") then
-			exports['pulsar-core']:LoggerTrace(
+			plsr.Logger:Trace(
 				"Labor",
 				string.format(
 					"%s %s (%s) Attempted To Join Workgroup (%s)",
@@ -68,36 +68,34 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					myDuty
 				)
 			)
-			-- DropPlayer(
-			-- 	source,
-			-- 	string.format("%s", "Double dipping jobs is not allowed. Don't do it again - instead, go off duty.")
-			-- )
-			exports['pulsar-hud']:Notification(source, "error",
-				'Double dipping jobs is not allowed. Instead, go off duty.')
+			DropPlayer(
+				source,
+				string.format("%s", "Double dipping jobs is not allowed. Don't do it again - instead, go off duty.")
+			)
 			cb(false)
 		else
 			if char:GetData("ICU") ~= nil and not char:GetData("ICU").Released then
 				cb(false)
 			else
-				cb(exports['pulsar-labor']:RequestWorkgroup(data, source))
+				cb(plsr.Labor.Workgroups:Request(data, source))
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Labor:LeaveWorkgroup", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Labor:LeaveWorkgroup", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char:GetData("ICU") ~= nil and not char:GetData("ICU").Released then
 			cb(false)
 		else
-			cb(exports['pulsar-labor']:LeaveWorkgroup(data, source))
+			cb(plsr.Labor.Workgroups:Leave(data, source))
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Labor:StartLaborJob", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		local myDuty = Player(source).state.onDuty
+	plsr.Callbacks:RegisterServerCallback("Phone:Labor:StartLaborJob", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
+		local myDuty = plsr.State:Player(source).onDuty
 		if myDuty and (myDuty == "police" or myDuty == "ems") then
-			exports['pulsar-core']:LoggerTrace(
+			plsr.Logger:Trace(
 				"Labor",
 				string.format(
 					"%s %s (%s) Attempted To Double Dip Jobs (%s and %s)",
@@ -108,28 +106,26 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 					data.job
 				)
 			)
-			-- DropPlayer(
-			-- 	source,
-			-- 	string.format("%s", "Double dipping jobs is not allowed. Don't do it again - instead, go off duty.")
-			-- )
-			exports['pulsar-hud']:Notification(source, "error",
-				'Double dipping jobs is not allowed. Instead, go off duty.')
+			DropPlayer(
+				source,
+				string.format("%s", "Double dipping jobs is not allowed. Don't do it again - instead, go off duty.")
+			)
 			cb(false)
 		else
 			if char:GetData("ICU") ~= nil and not char:GetData("ICU").Released then
 				cb(false)
 			else
-				cb(exports['pulsar-labor']:OnDuty(data.job, source, data.isWorkgroup))
+				cb(plsr.Labor.Duty:On(data.job, source, data.isWorkgroup))
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Labor:QuitLaborJob", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Labor:QuitLaborJob", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char:GetData("ICU") ~= nil and not char:GetData("ICU").Released then
 			cb(false)
 		else
-			cb(exports['pulsar-labor']:OffDuty(data, source))
+			cb(plsr.Labor.Duty:Off(data, source))
 		end
 	end)
 end)

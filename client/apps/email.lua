@@ -7,7 +7,7 @@ RegisterNetEvent("Phone:Client:Email:Receive", function(email)
 		},
 	})
 	Wait(1e3)
-	exports['pulsar-phone']:NotificationAdd(email.sender, email.subject, email.time, 6000, "email", {
+	plsr.Phone.Notification:Add(email.sender, email.subject, email.time, 6000, "email", {
 		view = "view/" .. email.id,
 	}, nil)
 end)
@@ -24,12 +24,12 @@ end)
 
 RegisterNUICallback("ReadEmail", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:Email:Read", data)
+	plsr.Callbacks:ServerCallback("Phone:Email:Read", data)
 end)
 
 RegisterNUICallback("DeleteEmail", function(data, cb)
 	cb("OK")
-	exports["pulsar-core"]:ServerCallback("Phone:Email:Delete", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Email:Delete", data, function(res)
 		cb(res)
 	end)
 end)

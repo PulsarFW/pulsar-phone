@@ -1,15 +1,16 @@
-_royalty = 250           -- amount per play
-_maxRoyaltyPerHour = 500 -- max amount per hour
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
+
+_royalty = config.Music.royaltyPerPlay
+_maxRoyaltyPerHour = config.Music.maxRoyaltyPerHour
 _pendingShopDeposits = {}
-_royaltyCompanies = {
-	["triad"] = {
-		royalty = _royalty,
-	},
-}
+_royaltyCompanies = {}
+for _, company in ipairs(config.Music.royaltyCompanies) do
+	_royaltyCompanies[company] = { royalty = _royalty }
+end
 _startingPendingDepositThread = false
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Music:Server:SendRoyalties", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Music:Server:SendRoyalties", function(source, data, cb)
 		local song = data.title
 		local label = string.lower(data.label_name)
 
@@ -30,30 +31,26 @@ end)
 
 AddEventHandler("Phone:Server:Startup", function()
 	for k, v in pairs(_royaltyCompanies) do
-		local t = exports['pulsar-finance']:AccountsGetOrganization(k)
-		if t and t.Account then
-			_pendingShopDeposits[k] = {
-				bank = t.Account,
-				royalties = {},
-			}
-		else
-			exports['pulsar-core']:LoggerWarn("Phone", string.format("Organization account not found for: %s", k))
-		end
+		local t = plsr.Banking.Accounts:GetOrganization(k)
+		_pendingShopDeposits[k] = {
+			bank = t.Account,
+			royalties = {},
+		}
 	end
 
 	if not _startingPendingDepositThread then
 		_startingPendingDepositThread = true
 		CreateThread(function()
 			while true do
-				Wait(1000 * 60 * 60)
+				Wait(config.Music.payoutIntervalMs)
 				for k, v in pairs(_pendingShopDeposits) do
 					for k2, v2 in pairs(v.royalties) do
-						exports['pulsar-core']:LoggerTrace(
+						plsr.Logger:Trace(
 							"Phone",
 							string.format("Depositing ^2$%s^7 To ^3%s^7 For Royalties", v2.total, v.bank)
 						)
 
-						exports['pulsar-finance']:BalanceDeposit(v.bank, v2.total, {
+						plsr.Banking.Balance:Deposit(v.bank, v2.total, {
 							type = "deposit",
 							title = "Royalty Fee",
 							description = string.format("Royalties for %s - Number of Plays %s", v2.song, v2.played),

@@ -1,77 +1,46 @@
-local marketItems = {
-	{
-		item = "chopping_invite",
-		coin = "MALD",
-		price = 600,
-		vpn = true,
-		ep = "Chopping",
-		repLvl = 3,
-		limited = {
-			id = 1,
-			qty = 1,
-		},
-	},
-}
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
 
-local _blacklistedJobs = {
-	police = true,
-	ems = true,
-	government = true,
-}
+PHONE.Chopper = PHONE.Chopper or {}
+
+local marketItems = { config.Chopper.item }
+
+local _blacklistedJobs = {}
+for _, job in ipairs(config.ProtectedJobs) do
+	_blacklistedJobs[job] = true
+end
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports['pulsar-pedinteraction']:VendorCreate("ChoperItems", "ped", "Items", `U_M_Y_SmugMech_01`, {
-		coords = vector3(-623.589, -1681.736, 19.101),
-		heading = 228.222,
+	plsr.Vendor:Create("ChoperItems", "ped", "Items", `U_M_Y_SmugMech_01`, {
+		coords = config.Chopper.vendorLocation,
+		heading = config.Chopper.vendorHeading,
 		scenario = "WORLD_HUMAN_TOURIST_MOBILE",
-	}, marketItems, "fas fa-money-bill", "View Offers", false, false, true)
-end)
+	}, marketItems, "dollar-sign", "View Offers", false, false, true)
 
-function RegisterItemUses()
-	exports.ox_inventory:RegisterUse("chopping_invite", "LSUNDG", function(source, item, itemData)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Inventory.Items:RegisterUse("chopping_invite", "LSUNDG", function(source, item, itemData)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
-			local pState = Player(source).state
-			if not pState.onDuty or not _blacklistedJobs[pState.onDuty] then
+			local onDuty = plsr.State:Player(source).onDuty
+			if not onDuty or not _blacklistedJobs[onDuty] then
 				if not hasValue(char:GetData("States") or {}, "ACCESS_CHOPPER") then
-					if exports.ox_inventory:RemoveSlot(item.Owner, item.Name, 1, item.Slot, 1) then
+					if plsr.Inventory.Items:RemoveSlot(item.Owner, item.Name, 1, item.Slot, 1) then
 						local states = char:GetData("States") or {}
 						table.insert(states, "ACCESS_CHOPPER")
 						char:SetData("States", states)
 
-						char:SetData("Apps",
-							exports['pulsar-phone']:StoreInstallDo("chopper", char:GetData("Apps"), "force"))
+						char:SetData("Apps", plsr.Phone.Store.Install:Do("chopper", char:GetData("Apps"), "force"))
 
-						SetTimeout(5000, function()
-							exports['pulsar-phone']:NotificationAdd(source, "App Installed", nil, os.time(), 6000,
-								"chopper", {
-									view = "",
-								}, nil)
+						Citizen.SetTimeout(config.Chopper.installNotifyDelay, function()
+							plsr.Phone.Notification:Add(source, "App Installed", nil, os.time(), config.NotificationDurations.short, "chopper", {
+								view = "",
+							}, nil)
 						end)
 					end
 				else
-					exports['pulsar-hud']:Notification(source, "error",
-						"You already have access to that app")
+					plsr.Execute:Client(source, "Notification", "Error", "You already have access to that app")
 				end
 			else
-				exports['pulsar-hud']:Notification(source, "error", "You Can't Use This Item")
+				plsr.Execute:Client(source, "Notification", "Error", "You Can't Use This Item")
 			end
 		end
 	end)
-end
-
-RegisterNetEvent('ox_inventory:ready', function()
-	if GetResourceState(GetCurrentResourceName()) == 'started' then
-		RegisterItemUses()
-	end
-end)
-
--- Also try to register on resource start in case ox_inventory is already ready
-AddEventHandler('onResourceStart', function(resourceName)
-	if resourceName == GetCurrentResourceName() then
-		Wait(2000) -- Wait for ox_inventory to be ready
-		if GetResourceState('ox_inventory') == 'started' then
-			RegisterItemUses()
-		end
-	end
 end)

@@ -6,7 +6,7 @@ RegisterNetEvent("Phone:Client:CoManager:GetJobOffer", function(time, jobData)
 	else
 		message = string.format("You've received an employment offer as %s - %s", jobData.Name, jobData.Grade.Name)
 	end
-	exports['pulsar-phone']:NotificationAdd(
+	plsr.Phone.Notification:Add(
 		"Employment Offer",
 		message,
 		time,
@@ -26,7 +26,7 @@ end)
 
 RegisterNetEvent("Phone:Client:CoManager:GetOfferResult", function(time, state)
 	if state then
-		exports['pulsar-phone']:NotificationAdd(
+		plsr.Phone.Notification:Add(
 			"Employment Offer Response",
 			"Your Employment Offer Was Accepted",
 			time,
@@ -36,7 +36,7 @@ RegisterNetEvent("Phone:Client:CoManager:GetOfferResult", function(time, state)
 			nil
 		)
 	else
-		exports['pulsar-phone']:NotificationAdd(
+		plsr.Phone.Notification:Add(
 			"Employment Offer Response",
 			"Your Employment Offer Was Declined",
 			time,
@@ -49,14 +49,13 @@ RegisterNetEvent("Phone:Client:CoManager:GetOfferResult", function(time, state)
 end)
 
 AddEventHandler("Phone:Client:CoManager:AcceptHire", function()
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:AcceptHire", {}, function(time, state)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:AcceptHire", {}, function(time, state)
 		if state then
-			exports['pulsar-phone']:NotificationAdd("Employment", "You accepted an employment offer", time, 6000,
-				"comanager", {
-					view = "",
-				}, nil)
+			plsr.Phone.Notification:Add("Employment", "You accepted an employment offer", time, 6000, "comanager", {
+				view = "",
+			}, nil)
 		else
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				"Employment",
 				"Unable to accept an employment offer",
 				time,
@@ -72,8 +71,8 @@ AddEventHandler("Phone:Client:CoManager:AcceptHire", function()
 end)
 
 AddEventHandler("Phone:Client:CoManager:DeclineHire", function()
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:DeclineHire", {}, function(time)
-		exports['pulsar-phone']:NotificationAdd(
+	plsr.Callbacks:ServerCallback("Phone:CoManager:DeclineHire", {}, function(time)
+		plsr.Phone.Notification:Add(
 			"Employment",
 			"You declined an employment offer",
 			time,
@@ -86,7 +85,7 @@ AddEventHandler("Phone:Client:CoManager:DeclineHire", function()
 end)
 
 RegisterNetEvent("Phone:Client:CoManager:GetTransferRequest", function(time, data)
-	exports['pulsar-phone']:NotificationAdd(
+	plsr.Phone.Notification:Add(
 		data.Name,
 		string.format("%s Wants To Transfer Ownership of %s", data.Sender, data.Name),
 		time,
@@ -101,9 +100,9 @@ RegisterNetEvent("Phone:Client:CoManager:GetTransferRequest", function(time, dat
 end)
 
 AddEventHandler("Phone:Client:CoManager:AcceptXfer", function()
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:AcceptXfer", {}, function(time, state)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:AcceptXfer", {}, function(time, state)
 		if state then
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				"Employment",
 				"You accepted an ownership transfer request",
 				time,
@@ -115,7 +114,7 @@ AddEventHandler("Phone:Client:CoManager:AcceptXfer", function()
 				nil
 			)
 		else
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				"Employment",
 				"Unable to accept an ownership transfer request",
 				time,
@@ -131,8 +130,8 @@ AddEventHandler("Phone:Client:CoManager:AcceptXfer", function()
 end)
 
 AddEventHandler("Phone:Client:CoManager:DeclineXfer", function()
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:DeclineXfer", {}, function(time)
-		exports['pulsar-phone']:NotificationAdd(
+	plsr.Callbacks:ServerCallback("Phone:CoManager:DeclineXfer", {}, function(time)
+		plsr.Phone.Notification:Add(
 			"Employment",
 			"You declined an ownership transfer request",
 			time,
@@ -145,57 +144,57 @@ AddEventHandler("Phone:Client:CoManager:DeclineXfer", function()
 end)
 
 RegisterNUICallback("QuitJob", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:QuitJob", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:QuitJob", data, cb)
 end)
 
 RegisterNUICallback("FetchRoster", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:FetchRoster", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:FetchRoster", data, cb)
 end)
 
 RegisterNUICallback("FetchTimeWorked", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:FetchTimeWorked", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:FetchTimeWorked", data, cb)
 end)
 
 RegisterNUICallback("RenameCompany", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:RenameCompany", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:RenameCompany", data, cb)
 end)
 
 RegisterNUICallback("HireEmployee", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:HireEmployee", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:HireEmployee", data, cb)
 end)
 
 RegisterNUICallback("FireEmployee", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:FireEmployee", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:FireEmployee", data, cb)
 end)
 
 RegisterNUICallback("UpdateEmployee", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:UpdateEmployee", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:UpdateEmployee", data, cb)
 end)
 
 RegisterNUICallback("EditWorkplace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:EditWorkplace", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:EditWorkplace", data, cb)
 end)
 
 RegisterNUICallback("CreateGrade", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:CreateGrade", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:CreateGrade", data, cb)
 end)
 
 RegisterNUICallback("EditGrade", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:EditGrade", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:EditGrade", data, cb)
 end)
 
 RegisterNUICallback("DeleteGrade", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:DeleteGrade", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:DeleteGrade", data, cb)
 end)
 
 RegisterNUICallback("PurchaseUpgrade", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:PurchaseUpgrade", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:PurchaseUpgrade", data, cb)
 end)
 
 RegisterNUICallback("DisbandCompany", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:DisbandCompany", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:DisbandCompany", data, cb)
 end)
 
 RegisterNUICallback("TransferCompany", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:CoManager:TransferCompany", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:CoManager:TransferCompany", data, cb)
 end)

@@ -1,5 +1,13 @@
+RegisterNetEvent("Phone:Client:Spawn", function(data)
+
+end)
+
+PHONE.Chopper = {
+
+}
+
 RegisterNUICallback("GetChopperDetails", function(data, cb)
-    exports["pulsar-core"]:ServerCallback("Laptop:LSUnderground:GetDetails", {
+	plsr.Callbacks:ServerCallback("Laptop:LSUnderground:GetDetails", {
         phone = true
     }, function(data)
         cb(data)

@@ -248,7 +248,7 @@ function InitBizPhones()
 	for k, v in pairs(_bizPhones) do
 		if not _bizPhoneNumbers[v.id] then
 			-- Needs Number Generating
-			local number = exports['pulsar-phone']:GeneratePhoneNumber()
+			local number = plsr.Phone:GeneratePhoneNumber()
 			v.number = number
 
 			_bizPhoneNumbers[v.id] = v.number

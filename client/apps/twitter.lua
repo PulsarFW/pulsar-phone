@@ -6,7 +6,7 @@ RegisterNetEvent("Phone:Client:Twitter:Notify", function(tweet)
 
 	if tweet.source ~= GetPlayerServerId(PlayerId()) then
 		Wait(1000)
-		exports['pulsar-phone']:NotificationAdd(tweet.author.name, tweet.content, tweet.time, 6000, "twitter", {
+		plsr.Phone.Notification:Add(tweet.author.name, tweet.content, tweet.time, 6000, "twitter", {
 			view = "#",
 		}, nil)
 	end
@@ -26,13 +26,13 @@ RegisterNetEvent("Phone:Client:Twitter:ClearTweets", function()
 end)
 
 RegisterNUICallback("Twitter:GetCount", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Twitter:GetCount", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Twitter:GetCount", data, cb)
 end)
 
 RegisterNUICallback("Twitter:GetTweets", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Twitter:GetTweets", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Twitter:GetTweets", data, cb)
 end)
 
 RegisterNUICallback("SendTweet", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Twitter:CreateTweet", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Twitter:CreateTweet", data, cb)
 end)

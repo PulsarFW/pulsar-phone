@@ -1,5 +1,5 @@
 RegisterNUICallback("Dyn8:SearchProperty", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Dyn8:Search", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Dyn8:Search", data, cb)
 end)
 
 RegisterNUICallback("Dyn8:MarkProperty", function(data, cb)
@@ -10,15 +10,15 @@ RegisterNUICallback("Dyn8:MarkProperty", function(data, cb)
 	else
 		cb(false)
 	end
-	exports["pulsar-core"]:ServerCallback("Phone:Dyn8:Search", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Dyn8:Search", data, cb)
 end)
 
 RegisterNUICallback("Dyn8:SellProperty", function(data, cb)
 	cb('OK')
-	--exports["pulsar-core"]:ServerCallback("Phone:Dyn8:Sell", data, cb)
+	--Callbacks:ServerCallback("Phone:Dyn8:Sell", data, cb)
 end)
 
 RegisterNUICallback("Dyn8:CheckCredit", function(data, cb)
 	cb('OK')
-	--exports["pulsar-core"]:ServerCallback("Phone:Dyn8:CheckCredit", data, cb)
+	--Callbacks:ServerCallback("Phone:Dyn8:CheckCredit", data, cb)
 end)

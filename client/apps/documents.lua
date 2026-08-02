@@ -7,7 +7,7 @@ RegisterNetEvent("Phone:Client:Documents:ReceivedSignature", function(id, data)
 		},
 	})
 
-	exports['pulsar-phone']:NotificationAdd(
+	plsr.Phone.Notification:Add(
 		"Document Signed",
 		string.format("%s Signed Your Document", data.signed_name),
 		data.signed,
@@ -30,7 +30,7 @@ RegisterNetEvent("Phone:Client:Documents:SigReqReceived", function(id, data)
 	})
 
 	if data.signed ~= nil then
-		exports['pulsar-phone']:NotificationAdd(
+		plsr.Phone.Notification:Add(
 			"Document Signed",
 			string.format("%s Signed Your Document", data.signed_name),
 			data.signed,
@@ -54,25 +54,25 @@ RegisterNetEvent("Phone:Client:Documents:Deleted", function(id)
 end)
 
 RegisterNUICallback("EditDocument", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Documents:Edit", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Documents:Edit", data, cb)
 end)
 
 RegisterNUICallback("DeleteDocument", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Documents:Delete", data.id, cb)
+	plsr.Callbacks:ServerCallback("Phone:Documents:Delete", data.id, cb)
 end)
 
 RegisterNUICallback("CreateDocument", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Documents:Create", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Documents:Create", data, cb)
 end)
 
 RegisterNUICallback("ShareDocument", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Documents:Share", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Documents:Share", data, cb)
 end)
 
 RegisterNUICallback("SignDocument", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Documents:Sign", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Documents:Sign", data, cb)
 end)
 
 RegisterNUICallback("Documents:GetSignatures", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Documents:GetSignatures", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Documents:GetSignatures", data, cb)
 end)

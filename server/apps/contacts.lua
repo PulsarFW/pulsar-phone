@@ -1,21 +1,23 @@
 local _playersContacts = {}
 
-exports("ContactsIsContact", function(myId, targetNumber)
-	if _playersContacts[myId] ~= nil then
-		for k, v in ipairs(_playersContacts[myId]) do
-			if v.number == targetNumber then
-				return v
+PHONE.Contacts = {
+	IsContact = function(self, myId, targetNumber)
+		if _playersContacts[myId] ~= nil then
+			for k, v in ipairs(_playersContacts[myId]) do
+				if v.number == targetNumber then
+					return v
+				end
 			end
-		end
 
-		return false
-	else
-		return false
-	end
-end)
+			return false
+		else
+			return false
+		end
+	end,
+}
 
 AddEventHandler("Phone:Server:RegisterMiddleware", function()
-	exports['pulsar-core']:MiddlewareAdd("Phone:Spawning", function(source, char)
+	plsr.Middleware:Add("Phone:Spawning", function(source, char)
 		local contacts = MySQL.query.await(
 			"SELECT id, sid, number, name, avatar, color, favorite FROM character_contacts WHERE sid = ?",
 			{
@@ -35,8 +37,8 @@ AddEventHandler("Phone:Server:RegisterMiddleware", function()
 end)
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Contacts:Create", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Contacts:Create", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 			local id = MySQL.insert.await(
@@ -69,12 +71,12 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Contacts:Update", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:Contacts:Update", function(source, data, cb)
 		if data.id == nil then
 			return cb(nil)
 		end
 
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 
@@ -110,8 +112,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Contacts:Delete", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Contacts:Delete", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			local sid = char:GetData("SID")
 

@@ -1,31 +1,32 @@
 local _tweets = {}
 
-exports("TwitterGet", function()
-	return _tweets
-end)
+PHONE.Twitter = {
+	Get = function(self)
+		return _tweets
+	end,
+	Post = function(self, source, SID, author, content, image, isRetweet, verified)
+		local data = {
+			id = #_tweets + 1,
+			time = os.time(),
+			source = source,
+			SID = SID,
+			author = author,
+			content = content,
+			image = image,
+			likes = {},
+			retweet = isRetweet,
+			verified = verified,
+		}
 
-exports("TwitterPost", function(source, SID, author, content, image, isRetweet, verified)
-	local data = {
-		id = #_tweets + 1,
-		time = os.time(),
-		source = source,
-		SID = SID,
-		author = author,
-		content = content,
-		image = image,
-		likes = {},
-		retweet = isRetweet,
-		verified = verified,
-	}
+		table.insert(_tweets, data)
 
-	table.insert(_tweets, data)
-
-	TriggerClientEvent("Phone:Client:Twitter:Notify", -1, data)
-	return true
-end)
+		TriggerClientEvent("Phone:Client:Twitter:Notify", -1, data)
+		return data
+	end,
+}
 
 -- AddEventHandler("Phone:Server:AliasUpdated", function(src)
--- 	local char = exports['pulsar-characters']:FetchCharacterSource(src)
+-- 	local char = Fetch:CharacterSource(src)
 -- 	local sid = char:GetData("SID")
 -- 	for k, v in ipairs(_tweets) do
 -- 		if v.SID == sid then
@@ -58,18 +59,16 @@ function ClearAllTweets(account)
 end
 
 AddEventHandler("Phone:Server:RegisterMiddleware", function()
-	exports['pulsar-core']:MiddlewareAdd("Phone:CreateProfiles", function(source, cData)
+	plsr.Middleware:Add("Phone:CreateProfiles", function(source, cData)
 		local name = string.format("%s%s%s", cData.First, cData.Last, cData.SID)
 
-		local id = MySQL.insert.await(
-			"INSERT INTO character_app_profiles (sid, app, name, picture, meta) VALUES(?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), picture = VALUES(picture), meta = VALUES(meta)",
-			{
-				cData.SID,
-				"twitter",
-				name,
-				nil,
-				'{}',
-			})
+		local id = MySQL.insert.await("INSERT INTO character_app_profiles (sid, app, name, picture, meta) VALUES(?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), picture = VALUES(picture), meta = VALUES(meta)", {
+			cData.SID,
+			"twitter",
+			name,
+			nil,
+			'{}',
+		})
 
 		return {
 			{
@@ -85,27 +84,26 @@ AddEventHandler("Phone:Server:RegisterMiddleware", function()
 		}
 	end)
 
-	exports['pulsar-core']:MiddlewareAdd("Characters:Spawning", function(source)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Middleware:Add("Characters:Spawning", function(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		local alias = char:GetData("Alias")
 		local profiles = char:GetData("Profiles") or {}
-
+	
 		if alias.twitter ~= nil then
+
 			local avatar = nil
-			if alias.twitter and alias.twitter.avatar ~= nil then
+			if alias?.twitter?.avatar ~= nil then
 				avatar = alias.twitter.avatar:sub(1, 512)
 			end
 
-			local rid = MySQL.insert.await(
-				"INSERT INTO character_app_profiles (sid, app, name, picture, meta) VALUES(?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), picture = VALUES(picture), meta = VALUES(meta)",
-				{
-					char:GetData("SID"),
-					"twitter",
-					alias.twitter.name,
-					avatar,
-					'{}',
-				})
-
+			local rid = MySQL.insert.await("INSERT INTO character_app_profiles (sid, app, name, picture, meta) VALUES(?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), picture = VALUES(picture), meta = VALUES(meta)", {
+				char:GetData("SID"),
+				"twitter",
+				alias.twitter.name,
+				avatar,
+				'{}',
+			})
+	
 			profiles.twitter = {
 				sid = char:GetData("SID"),
 				app = "twitter",
@@ -113,7 +111,7 @@ AddEventHandler("Phone:Server:RegisterMiddleware", function()
 				picture = avatar,
 				meta = {},
 			}
-
+	
 			alias.twitter = nil
 			char:SetData("Alias", alias)
 			char:SetData("Profiles", profiles)
@@ -123,15 +121,14 @@ end)
 
 AddEventHandler("Phone:Server:UpdateProfile", function(source, data)
 	if data.app == "twitter" then
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			local sid = char:GetData("SID")
-			local count = MySQL.scalar.await(
-				'SELECT COUNT(*) FROM character_app_profiles WHERE app = ? AND name = ? and sid != ?', {
-					"twitter",
-					data.name,
-					sid,
-				})
+			local count = MySQL.scalar.await('SELECT COUNT(*) FROM character_app_profiles WHERE app = ? AND name = ? and sid != ?', {
+				"twitter",
+				data.name,
+				sid,
+			})
 
 			if count == 0 then
 				MySQL.prepare.await(
@@ -144,7 +141,7 @@ AddEventHandler("Phone:Server:UpdateProfile", function(source, data)
 						json.encode(data.meta or {}),
 					}
 				)
-
+	
 				local profiles = char:GetData("Profiles") or {}
 				profiles["twitter"] = {
 					sid = sid,
@@ -155,18 +152,18 @@ AddEventHandler("Phone:Server:UpdateProfile", function(source, data)
 				}
 				char:SetData("Profiles", profiles)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "Username already in use")
+				plsr.Execute:Client(source, "Notification", "Error", "Username already in use")
 			end
 		end
 	end
 end)
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Twitter:GetCount", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:Twitter:GetCount", function(source, data, cb)
 		cb(#_tweets)
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Twitter:GetTweets", function(source, offset, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:Twitter:GetTweets", function(source, offset, cb)
 		local t = {}
 		for i = (#_tweets - offset), (#_tweets - offset) - 20, -1 do
 			if i > 0 and _tweets[i] ~= nil then
@@ -176,12 +173,12 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb(t)
 	end, 1)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Twitter:CreateTweet", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:Twitter:CreateTweet", function(source, data, cb)
 		local src = source
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+		local char = plsr.Fetch:CharacterSource(src)
 
 		cb(
-			exports['pulsar-phone']:TwitterPost(
+			plsr.Phone.Twitter:Post(
 				src,
 				char:GetData("SID"),
 				char:GetData("Profiles").twitter,

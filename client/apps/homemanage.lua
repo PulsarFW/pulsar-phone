@@ -1,7 +1,7 @@
 RegisterNUICallback("Home:GetMyProperties", function(data, cb)
-	local props = exports['pulsar-properties']:GetPropertiesWithAccess() or {}
+	local props = plsr.Properties:GetPropertiesWithAccess() or {}
 
-	local upgrades = exports['pulsar-properties']:GetUpgradesConfig()
+	local upgrades = plsr.Properties:GetUpgradesConfig()
 
 	cb({
 		properties = props,
@@ -14,42 +14,42 @@ RegisterNUICallback("Home:StartPlacement", function(data, cb)
 end)
 
 RegisterNUICallback("Home:CreateDigiKey", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Home:CreateDigiKey", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Home:CreateDigiKey", data, cb)
 end)
 
 RegisterNUICallback("Home:RevokeDigiKey", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Home:RevokeDigiKey", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Home:RevokeDigiKey", data, cb)
 end)
 
 RegisterNUICallback("Home:RemoveMyKey", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Home:RemoveMyKey", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Home:RemoveMyKey", data, cb)
 end)
 
 RegisterNUICallback("Home:LockProperty", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Home:LockProperty", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Home:LockProperty", data, cb)
 end)
 
 RegisterNUICallback("Home:EditMode", function(data, cb)
-	exports['pulsar-properties']:EditMode()
+	plsr.Properties.Furniture:EditMode()
 	cb("OK")
 end)
 
 RegisterNUICallback("Home:GetCurrentFurniture", function(data, cb)
-	local p = exports['pulsar-properties']:GetCurrent(data.property)
+	local p = plsr.Properties.Furniture:GetCurrent(data.property)
 	cb(p)
 end)
 
 RegisterNUICallback("Home:PlaceFurniture", function(data, cb)
 	-- model, category
-	cb(exports['pulsar-properties']:Place(data.model, data.category))
+	cb(plsr.Properties.Furniture:Place(data.model, data.category))
 end)
 
 RegisterNUICallback("Home:EditFurniture", function(data, cb)
-	cb(exports['pulsar-properties']:Move(data.id))
+	cb(plsr.Properties.Furniture:Move(data.id))
 end)
 
 RegisterNUICallback("Home:DeleteFurniture", function(data, cb)
-	cb(exports['pulsar-properties']:Delete(data.id))
+	cb(plsr.Properties.Furniture:Delete(data.id))
 end)
 
 RegisterNUICallback("Home:HighlightFurniture", function(data, cb)
@@ -59,16 +59,16 @@ end)
 
 RegisterNUICallback("PurchasePropertyInterior", function(data, cb)
 	-- data.int
-	exports["pulsar-core"]:ServerCallback("Properties:ChangeInterior", data, cb)
+	plsr.Callbacks:ServerCallback("Properties:ChangeInterior", data, cb)
 end)
 
 RegisterNUICallback("PurchasePropertyUpgrade", function(data, cb)
 	-- data.upgrade
-	exports["pulsar-core"]:ServerCallback("Properties:Upgrade", data, cb)
+	plsr.Callbacks:ServerCallback("Properties:Upgrade", data, cb)
 end)
 
 RegisterNUICallback("PreviewPropertyInterior", function(data, cb)
 	-- data.int
 	cb("OK")
-	exports['pulsar-properties']:Preview(data.int)
+	plsr.Properties.Interiors:Preview(data.int)
 end)

@@ -1,5 +1,5 @@
 RegisterNUICallback("Banking:GetData", function(data, cb)
-	exports["pulsar-core"]:ServerCallback('Banking:GetAccounts', {}, function(accounts, pendingBills)
+	plsr.Callbacks:ServerCallback('Banking:GetAccounts', {}, function(accounts, pendingBills)
 		cb({
 			accounts = accounts,
 			pendingBills = pendingBills or {},
@@ -11,10 +11,10 @@ end)
 
 RegisterNUICallback("Banking:Transfer", function(data, cb)
 	data.action = 'TRANSFER'
-	exports["pulsar-core"]:ServerCallback('Banking:DoAccountAction', data, function(success)
+	plsr.Callbacks:ServerCallback('Banking:DoAccountAction', data, function(success)
 		if success then
-			exports["pulsar-core"]:ServerCallback('Banking:GetAccounts', {}, function(accounts, pendingBills)
-				exports['pulsar-phone']:DataSet('bankLoans', {
+			plsr.Callbacks:ServerCallback('Banking:GetAccounts', {}, function(accounts, pendingBills)
+				plsr.Phone.Data:Set('bankLoans', {
 					accounts = accounts,
 					pendingBills = pendingBills or {},
 				})
@@ -29,34 +29,34 @@ end)
 -- Bills
 
 RegisterNUICallback("Banking:AcceptBill", function(data, cb)
-	exports["pulsar-core"]:ServerCallback('Billing:AcceptBill', data, function(success)
+	plsr.Callbacks:ServerCallback('Billing:AcceptBill', data, function(success)
 		cb(success)
 	end)
 end)
 
 RegisterNUICallback("Banking:DismissBill", function(data, cb)
-	exports["pulsar-core"]:ServerCallback('Billing:DismissBill', data, function(success)
+	plsr.Callbacks:ServerCallback('Billing:DismissBill', data, function(success)
 		cb(success)
 	end)
 end)
 
 RegisterNUICallback("Banking:Bill", function(data, cb)
-	exports["pulsar-core"]:ServerCallback('Billing:CreateBill', data, function(success)
+	plsr.Callbacks:ServerCallback('Billing:CreateBill', data, function(success)
 		cb(success)
 	end)
 end)
 
 RegisterNUICallback("Banking:GetTransactions", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Banking:GetAccountsTransactions", data, cb)
+	plsr.Callbacks:ServerCallback("Banking:GetAccountsTransactions", data, cb)
 end)
 
 AddEventHandler("Phone:Nui:Bank:AcceptBill", function(data)
-	exports["pulsar-core"]:ServerCallback('Billing:AcceptBill', {
+	plsr.Callbacks:ServerCallback('Billing:AcceptBill', {
 		bill = data.bill,
 		notify = true
 	})
 end)
 
 AddEventHandler("Phone:Nui:Bank:DenyBill", function(data)
-	exports["pulsar-core"]:ServerCallback('Billing:DismissBill', data)
+	plsr.Callbacks:ServerCallback('Billing:DismissBill', data)
 end)

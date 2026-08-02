@@ -1,3 +1,5 @@
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
+
 local _races = {}
 local _tracks = nil
 local _trackData = {}
@@ -9,7 +11,7 @@ local function LoadTracks()
 	for k, v in ipairs(_tracks) do
 		v.Checkpoints = json.decode(v.Checkpoints)
 		v.Fastest = MySQL.rawExecute.await(
-			"SELECT l.id, l.track, l.race, l.callsign as alias, l.lap_start, l.lap_end, l.laptime, l.car, l.owned FROM blueline_track_history l WHERE track = ? ORDER BY l.laptime ASC LIMIT 10",
+			"SELECT l.id, l.track, l.race, l.callsign as alias, l.lap_start, l.lap_end, l.laptime, l.car, l.owned FROM blueline_track_history l WHERE track = ? ORDER BY l.laptime ASC LIMIT " .. config.Racing.leaderboardSize,
 			{
 				v.id,
 			}
@@ -28,14 +30,14 @@ end)
 AddEventHandler("Phone:Server:RegisterMiddleware", function()
 	LoadTracks()
 
-	exports['pulsar-core']:MiddlewareAdd("Characters:Spawning", function(source)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Middleware:Add("Characters:Spawning", function(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		TriggerLatentClientEvent("Phone:Client:Blueline:StoreTracks", source, 50000, _tracks)
 		TriggerClientEvent("Phone:Client:Blueline:Spawn", source, {
 			races = _races,
 		})
 	end, 2)
-	exports['pulsar-core']:MiddlewareAdd("Phone:UIReset", function(source)
+	plsr.Middleware:Add("Phone:UIReset", function(source)
 		TriggerLatentClientEvent("Phone:Client:Blueline:StoreTracks", source, 50000, _tracks)
 		TriggerClientEvent("Phone:Client:Blueline:Spawn", source, {
 			races = _races,
@@ -49,7 +51,7 @@ function ReloadRaceTracksPD()
 end
 
 function LeaveAnyRacePD(source)
-	local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	local char = plsr.Fetch:CharacterSource(source)
 	if char ~= nil and char:GetData("Callsign") then
 		local alias = tostring(char:GetData("Callsign"))
 		for k, v in pairs(_races) do
@@ -126,11 +128,11 @@ function FinishRacePD(id)
 					}
 					updateFastest = true
 				else
-					for i = 1, 10 do
+					for i = 1, config.Racing.leaderboardSize do
 						if
 							_tracks[racedTrack].Fastest[i] == nil
 							or fastest.lap_end - fastest.lap_start
-							< _tracks[racedTrack].Fastest[i].lap_end - _tracks[racedTrack].Fastest[i].lap_start
+								< _tracks[racedTrack].Fastest[i].lap_end - _tracks[racedTrack].Fastest[i].lap_start
 						then
 							table.insert(_tracks[racedTrack].Fastest, i, {
 								time = fastest.time,
@@ -140,7 +142,7 @@ function FinishRacePD(id)
 								car = _races[id].racers[alias].car or "UNKNOWN",
 								owned = _races[id].racers[alias].isOwned or false,
 							})
-							_tracks[racedTrack].Fastest = table.slice(_tracks[racedTrack].Fastest, 1, 10)
+							_tracks[racedTrack].Fastest = table.slice(_tracks[racedTrack].Fastest, 1, config.Racing.leaderboardSize)
 							updateFastest = true
 							break
 						end
@@ -173,7 +175,7 @@ function FinishRacePD(id)
 
 		if #laps > 0 then
 			local qry =
-			"INSERT INTO blueline_track_history (track, race, callsign, lap_start, lap_end, laptime, car, owned) VALUES "
+				"INSERT INTO blueline_track_history (track, race, callsign, lap_start, lap_end, laptime, car, owned) VALUES "
 			local params = {}
 			for k, v in ipairs(laps) do
 				table.insert(params, _races[id].track)
@@ -211,10 +213,10 @@ end
 -- TODO: Add check for player-owned vehicle
 RegisterServerEvent("Phone:Blueline:FinishRace", function(nId, data, laps, plate, vehName)
 	local src = source
-	local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	local char = plsr.Fetch:CharacterSource(src)
 	local alias = tostring(char:GetData("Callsign"))
 
-	local vehEnt = Entity(NetworkGetEntityFromNetworkId(nId)).state
+	local vehEnt = plsr.State.Entity(NetworkGetEntityFromNetworkId(nId))
 	_races[data].racers[alias] = {
 		laps = laps,
 		sid = char:GetData("SID"),
@@ -252,7 +254,7 @@ RegisterServerEvent("Phone:Blueline:FinishRace", function(nId, data, laps, plate
 end)
 
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:GetTrack", function(src, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:GetTrack", function(src, data, cb)
 		for k, v in ipairs(_tracks) do
 			if v.id == data then
 				cb(v)
@@ -262,8 +264,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		cb(nil)
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:SaveTrack", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:SaveTrack", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = tostring(char:GetData("Callsign"))
 
 		if alias ~= nil then
@@ -280,24 +282,23 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 				doc
 			)
 
-			local trackData = {
+			table.insert(_tracks, data)
+			TriggerClientEvent("Phone:Client:Blueline:StoreSingleTrack", -1, doc.id, {
 				id = doc.id,
 				Name = data.Name,
 				Distance = data.Distance,
 				Type = data.Type,
 				Checkpoints = data.Checkpoints,
 				created_by = alias,
-			}
-			table.insert(_tracks, trackData)
-			TriggerClientEvent("Phone:Client:Blueline:StoreSingleTrack", -1, doc.id, trackData)
+			})
 			cb(true)
 		else
 			cb(false)
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:DeleteTrack", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:DeleteTrack", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = tostring(char:GetData("Callsign"))
 		if alias ~= nil then
 			local qrys = {}
@@ -327,8 +328,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:ResetTrackHistory", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:ResetTrackHistory", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = tostring(char:GetData("Callsign"))
 		if alias ~= nil then
 			MySQL.query("DELETE FROM blueline_track_history WHERE track = ?", {
@@ -341,9 +342,9 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:CreateRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
-		if exports['pulsar-jobs']:HasJob(src, "police", false, false, false, false, "PD_MANAGE_TRIALS") then
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:CreateRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
+		if plsr.Jobs.Permissions:HasJob(src, "police", false, false, false, false, "PD_MANAGE_TRIALS") then
 			data.host_id = char:GetData("SID")
 			data.host_src = src
 			data.time = os.time()
@@ -377,12 +378,12 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 
 				_races[data.id] = table.copy(data)
 				_trackData[data.id] = table.copy(tmp)
-				for k, v in pairs(exports['pulsar-characters']:FetchAllCharacters()) do
+				for k, v in pairs(plsr.Fetch:AllCharacters()) do
 					if v ~= nil then
 						TriggerClientEvent("Phone:Client:Blueline:CreateRace", v:GetData("Source"), data)
-						local dutyData = exports['pulsar-jobs']:DutyGet(v:GetData("Source"))
+						local dutyData = plsr.Jobs.Duty:Get(v:GetData("Source"))
 						if v:GetData("Source") ~= src and dutyData?.Id == "police" then
-							exports['pulsar-phone']:NotificationAdd(
+							plsr.Phone.Notification:Add(
 								v:GetData("Source"),
 								string.format("New Event: %s", data.name),
 								string.format("%s created an event", v:GetData("Callsign")),
@@ -405,8 +406,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:CancelRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:CancelRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 
 		if _races[data].host_id == char:GetData("SID") then
 			_races[data].state = -1
@@ -421,8 +422,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:StartRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:StartRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		if _races[data].host_id == char:GetData("SID") then
 			local ploc = GetEntityCoords(GetPlayerPed(src))
 			local dist = #(
@@ -433,7 +434,7 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 				) - ploc
 			)
 
-			if dist > 25 then
+			if dist > config.RaceStartDistance then
 				cb({ failed = true, message = "Too Far From Starting Point" })
 			else
 				_races[data].state = 1
@@ -450,8 +451,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:EndRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:EndRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 
 		if _races[data].host_id == char:GetData("SID") then
 			FinishRacePD(data)
@@ -460,8 +461,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:JoinRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:JoinRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = tostring(char:GetData("Callsign"))
 
 		for k, v in ipairs(_races) do
@@ -472,12 +473,12 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 
 		print(data)
-		if exports['pulsar-jobs']:HasJob(src, "police") and alias ~= nil and _races[data].state == 0 then
+		if plsr.Jobs.Permissions:HasJob(src, "police") and alias ~= nil and _races[data].state == 0 then
 			if
 				_races[data].class ~= "All"
 				and CheckVehicleAgainstClass(_races[data].class, char:GetData("Source")) == false
 			then
-				exports['pulsar-phone']:NotificationAdd(
+				plsr.Phone.Notification:Add(
 					char:GetData("Source"),
 					"Unable to Join Race",
 					"This vehicle is not in the right class.",
@@ -500,8 +501,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Blueline:LeaveRace", function(src, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(src)
+	plsr.Callbacks:RegisterServerCallback("Phone:Blueline:LeaveRace", function(src, data, cb)
+		local char = plsr.Fetch:CharacterSource(src)
 		local alias = tostring(char:GetData("Callsign"))
 
 		if alias ~= nil and _races[data].state == 0 then
@@ -515,8 +516,8 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 end)
 
 function CheckVehicleAgainstClass(class, _src)
-	local vehEnt = Entity(GetVehiclePedIsIn(GetPlayerPed(_src), false))
-	if vehEnt.state.VIN and vehEnt.state.Owned and class == vehEnt.state.Class then
+	local vehEnt = plsr.State.Entity(GetVehiclePedIsIn(GetPlayerPed(_src), false))
+	if vehEnt.VIN and vehEnt.Owned and class == vehEnt.Class then
 		return true
 	end
 	return false

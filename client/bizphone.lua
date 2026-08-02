@@ -2,10 +2,10 @@ local phoneModel = `vw_prop_casino_phone_01a`
 local _createdPhones = {}
 
 function CreateBizPhoneObject(coords, rotation)
-    RequestModel(phoneModel)
-    while not HasModelLoaded(phoneModel) do
-        Wait(1)
-    end
+	RequestModel(phoneModel)
+	while not HasModelLoaded(phoneModel) do
+		Wait(1)
+	end
 
     local obj = CreateObject(phoneModel, coords.x, coords.y, coords.z, false, true, false)
     SetEntityRotation(obj, rotation.x, rotation.y, rotation.z)
@@ -27,15 +27,12 @@ function CreateBizPhones()
     for k, v in pairs(GlobalState.BizPhones) do
         local object = CreateBizPhoneObject(v.coords, v.rotation)
 
-        exports.ox_target:addEntity(object, {
+        plsr.Targeting:AddEntity(object, "square-phone", {
             {
                 icon = "phone-volume",
-                label = "Phone",
-                onSelect = function()
-                    TriggerEvent("Phone:Client:MakeBizCall", { id = v.id })
-                end,
-                groups = { v.job },
-                canInteract = function(data)
+                text = "Phone",
+                event = "",
+                isEnabled = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s", data.id)]
                         if pData and pData.state > 1 then
@@ -43,7 +40,7 @@ function CreateBizPhones()
                         end
                     end
                 end,
-                label = function(data)
+                textFunc = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s", data.id)]
                         if pData then
@@ -54,18 +51,23 @@ function CreateBizPhones()
                             end
                         end
                     end
+
                     return ""
                 end,
+                data = {
+                    id = v.id,
+                },
+                jobPerms = {
+                    {
+                        job = v.job
+                    }
+                }
             },
             {
-                icon = "phone",
-                label = "Make Call",
+                icon = "phone-arrow-up-right",
+                text = "Make Call",
                 event = "Phone:Client:MakeBizCall",
-                onSelect = function()
-                    TriggerEvent("Phone:Client:MakeBizCall", { id = v.id })
-                end,
-                groups = { v.job },
-                canInteract = function(data)
+                isEnabled = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s", data.id)]
                         if not pData then
@@ -73,15 +75,20 @@ function CreateBizPhones()
                         end
                     end
                 end,
+                data = {
+                    id = v.id,
+                },
+                jobPerms = {
+                    {
+                        job = v.job
+                    }
+                }
             },
             {
                 icon = "phone",
-                label = "Answer Phone",
-                onSelect = function()
-                    TriggerEvent("Phone:Client:AcceptBizCall", { id = v.id })
-                end,
-                groups = { v.job },
-                canInteract = function(data)
+                text = "Answer Phone",
+                event = "Phone:Client:AcceptBizCall",
+                isEnabled = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s", data.id)]
                         if pData and pData.state == 1 then
@@ -89,24 +96,30 @@ function CreateBizPhones()
                         end
                     end
                 end,
-                label = function(data)
+                textFunc = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s", data.id)]
                         if pData and pData.state == 1 then
                             return string.format("Answer Call From %s", pData.callingStr)
                         end
                     end
+
                     return ""
                 end,
+                data = {
+                    id = v.id,
+                },
+                jobPerms = {
+                    {
+                        job = v.job
+                    }
+                }
             },
             {
-                icon = "phone",
-                label = "Hang Up",
-                onSelect = function()
-                    TriggerEvent("Phone:Client:DeclineBizCall", { id = v.id })
-                end,
-                groups = { v.job },
-                canInteract = function(data)
+                icon = "phone-hangup",
+                text = "Hang Up",
+                event = "Phone:Client:DeclineBizCall",
+                isEnabled = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s", data.id)]
                         if pData then
@@ -114,25 +127,38 @@ function CreateBizPhones()
                         end
                     end
                 end,
+                data = {
+                    id = v.id,
+                },
+                jobPerms = {
+                    {
+                        job = v.job
+                    }
+                }
             },
             {
                 icon = "phone-slash",
-                label = "Mute Phone",
+                text = "Mute Phone",
                 event = "Phone:Client:MuteBiz",
-                onSelect = function()
-                    TriggerEvent("Phone:Client:MuteBiz", { id = v.id })
-                end,
-                groups = { v.job },
-                label = function(data)
+                textFunc = function(data, entity)
                     if data then
                         local pData = GlobalState[string.format("BizPhone:%s:Muted", data.id)]
                         if pData then
                             return "Unmute Phone"
                         end
                     end
+
                     return "Mute Phone"
                 end,
-            }
+                data = {
+                    id = v.id,
+                },
+                jobPerms = {
+                    {
+                        job = v.job
+                    }
+                }
+            },
         })
 
         table.insert(_createdPhones, object)
@@ -150,131 +176,129 @@ function CleanupBizPhones()
 end
 
 AddEventHandler("Phone:Client:MakeBizCall", function(entityData, data)
-    exports['pulsar-hud']:InputShow("Phone Number", "Number to Call", {
-        {
-            id = "number",
-            type = "text",
-            options = {
+    plsr.Input:Show("Phone Number", "Number to Call", {
+		{
+			id = "number",
+			type = "text",
+			options = {
                 helperText = "E.g 555-555-5555",
-                inputProps = {
+				inputProps = {
                     pattern = "[0-9-]+",
                     minlength = 12,
                     maxlength = 12,
                 },
-            },
-        },
-    }, "Phone:Client:MakeBizCallConfirm", data)
+			},
+		},
+	}, "Phone:Client:MakeBizCallConfirm", data)
 end)
 
 AddEventHandler("Phone:Client:MuteBiz", function(entityData, data)
-    exports["pulsar-core"]:ServerCallback("Phone:MuteBiz", data.id, function(success, state)
+    plsr.Callbacks:ServerCallback("Phone:MuteBiz", data.id, function(success, state)
         if success then
             if state then
-                exports["pulsar-hud"]:Notification("error", "Muted Phone")
+                plsr.Notification:Error("Muted Phone")
             else
-                exports["pulsar-hud"]:Notification("success", "Unmuted Phone")
+                plsr.Notification:Success("Unmuted Phone")
             end
         else
-            exports["pulsar-hud"]:Notification("error", "Unable to Mute Phone")
+            plsr.Notification:Error("Error")
         end
     end)
 end)
 
 AddEventHandler("Phone:Client:MakeBizCallConfirm", function(values, data)
     if values.number and data.id and GlobalState.BizPhones[data.id] then
-        exports["pulsar-core"]:ServerCallback("Phone:MakeBizCall", { id = data.id, number = values.number },
-            function(success)
-                LocalPlayer.state.bizCall = data.id
-                local startCoords = GlobalState.BizPhones[data.id].coords
+        plsr.Callbacks:ServerCallback("Phone:MakeBizCall", { id = data.id, number = values.number }, function(success)
+            plsr.State.flags.bizCall = data.id
+            local startCoords = GlobalState.BizPhones[data.id].coords
 
-                if success then
-                    CreateThread(function()
-                        exports['pulsar-animations']:EmotesPlay("phonecall2", true)
-                        exports["pulsar-sounds"]:LoopOne("ringing.ogg", 0.1)
-                        exports['pulsar-hud']:InfoOverlayShow("Dialing",
-                            string.format("Dailing Number: %s", values.number))
+            if success then
+                CreateThread(function()
+                    plsr.Animations.Emotes:Play("phonecall2", true)
+                    plsr.Sounds.Loop:One("ringing.ogg", 0.1)
+                    plsr.InfoOverlay:Show("Dialing", string.format("Dailing Number: %s", values.number))
 
-                        while LocalPlayer.state.loggedIn and LocalPlayer.state.bizCall do
-                            if #(GetEntityCoords(LocalPlayer.state.ped) - startCoords) >= 10.0 then
-                                TriggerServerEvent("Phone:Server:ForceEndBizCall")
-                            end
-                            Wait(500)
+                    while plsr.State.flags.loggedIn and plsr.State.flags.bizCall do
+                        if #(GetEntityCoords(PlayerPedId()) - startCoords) >= 10.0 then
+                            TriggerServerEvent("Phone:Server:ForceEndBizCall")
                         end
+                        Wait(500)
+                    end
 
-                        exports['pulsar-animations']:EmotesForceCancel()
-                        exports["pulsar-sounds"]:StopOne("ringing.ogg")
-                        exports['pulsar-hud']:InfoOverlayClose()
-                    end)
-                else
-                    exports["pulsar-hud"]:Notification("error", "Failed to Make Call")
-                end
-            end)
+                    plsr.Animations.Emotes:ForceCancel()
+                    plsr.Sounds.Stop:One("ringing.ogg")
+                    plsr.InfoOverlay:Close()
+                end)
+            else
+                plsr.Notification:Error("Failed to Make Call")
+            end
+        end)
     end
 end)
 
 RegisterNetEvent("Phone:Client:Phone:AcceptBizCall", function(number)
-    if LocalPlayer.state.bizCall then
-        exports['pulsar-hud']:InfoOverlayShow("On Call", string.format("To Number: %s", number))
-        exports["pulsar-sounds"]:StopOne("ringing.ogg")
+    if plsr.State.flags.bizCall then
+        plsr.InfoOverlay:Show("On Call", string.format("To Number: %s", number))
+        plsr.Sounds.Stop:One("ringing.ogg")
     end
 end)
 
 RegisterNetEvent("Phone:Client:Biz:Recieve", function(id, coords, radius)
-    if LocalPlayer.state.loggedIn and not GlobalState[string.format("BizPhone:%s:Muted", id)] then
-        local myCoords = GetEntityCoords(LocalPlayer.state.ped)
+    if plsr.State.flags.loggedIn and not GlobalState[string.format("BizPhone:%s:Muted", id)] then
+        local myCoords = GetEntityCoords(PlayerPedId())
         if #(myCoords - coords) <= 150.0 then
-            exports["pulsar-sounds"]:LoopLocation(string.format("bizphones-%s", id), coords, radius, "bizphone.ogg", 0.1)
-            SetTimeout(30000, function()
-                exports["pulsar-sounds"]:StopDistance(string.format("bizphones-%s", id), "bizphone.ogg")
+            plsr.Sounds.Do.Loop:Location(string.format("bizphones-%s", id), coords, radius, "bizphone.ogg", 0.1)
+            Citizen.SetTimeout(30000, function()
+                plsr.Sounds.Do.Stop:Distance(string.format("bizphones-%s", id), "bizphone.ogg")
             end)
         end
     end
 end)
 
 AddEventHandler("Phone:Client:DeclineBizCall", function(entityData, data)
-    exports["pulsar-core"]:ServerCallback("Phone:DeclineBizCall", data.id, function(success)
+    plsr.Callbacks:ServerCallback("Phone:DeclineBizCall", data.id, function(success)
         if not success then
-            exports["pulsar-hud"]:Notification("error", "Failed to Decline Call")
+            plsr.Notification:Error("Failed to Decline Call")
         end
     end)
 end)
 
 AddEventHandler("Phone:Client:AcceptBizCall", function(entityData, data)
     if data.id and GlobalState.BizPhones[data.id] then
-        exports["pulsar-core"]:ServerCallback("Phone:AcceptBizCall", data.id, function(success, callStr)
+        plsr.Callbacks:ServerCallback("Phone:AcceptBizCall", data.id, function(success, callStr)
             local startCoords = GlobalState.BizPhones[data.id].coords
-            LocalPlayer.state.bizCall = data.id
-
+            plsr.State.flags.bizCall = data.id
+    
             if success then
                 CreateThread(function()
-                    exports['pulsar-animations']:EmotesPlay("phonecall2", true)
-                    exports['pulsar-hud']:InfoOverlayShow("On Call", string.format("From Number: %s", callStr))
-                    while LocalPlayer.state.loggedIn and LocalPlayer.state.bizCall do
-                        if #(GetEntityCoords(LocalPlayer.state.ped) - startCoords) >= 10.0 then
+                    plsr.Animations.Emotes:Play("phonecall2", true)
+                    plsr.InfoOverlay:Show("On Call", string.format("From Number: %s", callStr))
+                    while plsr.State.flags.loggedIn and plsr.State.flags.bizCall do
+                        if #(GetEntityCoords(PlayerPedId()) - startCoords) >= 10.0 then
                             TriggerServerEvent("Phone:Server:ForceEndBizCall")
                         end
                         Wait(500)
                     end
-
-                    exports['pulsar-animations']:EmotesForceCancel()
-                    exports['pulsar-hud']:InfoOverlayClose()
+    
+                    plsr.Animations.Emotes:ForceCancel()
+                    plsr.InfoOverlay:Close()
                 end)
             else
-                exports["pulsar-hud"]:Notification("error", "Failed to Accept Call")
+                plsr.Notification:Error("Failed to Accept Call")
             end
         end)
     end
 end)
 
 RegisterNetEvent("Phone:Client:Biz:Answered", function(id)
-    exports["pulsar-sounds"]:StopDistance(string.format("bizphones-%s", id), "bizphone.ogg")
+    plsr.Sounds.Do.Stop:Distance(string.format("bizphones-%s", id), "bizphone.ogg")
 end)
 
 RegisterNetEvent("Phone:Client:Biz:End", function(id)
-    exports["pulsar-sounds"]:StopDistance(string.format("bizphones-%s", id), "bizphone.ogg")
+    plsr.Sounds.Do.Stop:Distance(string.format("bizphones-%s", id), "bizphone.ogg")
 
-    if LocalPlayer.state.bizCall and LocalPlayer.state.bizCall == id then
-        LocalPlayer.state.bizCall = nil
-        exports["pulsar-sounds"]:PlayOne("ended.ogg", 0.15)
+    if plsr.State.flags.bizCall and plsr.State.flags.bizCall == id then
+        plsr.State.flags.bizCall = nil
+        plsr.Sounds.Play:One("ended.ogg", 0.15)
     end
 end)

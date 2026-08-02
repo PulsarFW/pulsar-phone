@@ -1,29 +1,28 @@
+local config = load(LoadResourceFile(GetCurrentResourceName(), "config/server.lua"))()
+
 function RegisterChatCommands()
-	exports["pulsar-chat"]:RegisterCommand("resetphonepos", function(source, args, rawCommand)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Chat:RegisterCommand("resetphonepos", function(source, args, rawCommand)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
-			char:SetData("PhonePosition", {
-				x = 25,
-				y = 25,
-			})
+			char:SetData("PhonePosition", config.Phone.resetPosition)
 			TriggerClientEvent("Phone:Client:RestorePosition", source, char:GetData("PhonePosition"))
-			exports["pulsar-chat"]:SendSystemSingle(source, "Phone Position Reset")
+			plsr.Chat.Send.System:Single(source, "Phone Position Reset")
 		else
-			exports["pulsar-chat"]:SendSystemSingle(source, "Unable To Reset Phone Position")
+			plsr.Chat.Send.System:Single(source, "Unable To Reset Phone Position")
 		end
 	end, {
 		help = "Resets your phones position",
 	}, 0)
 
-	exports["pulsar-chat"]:RegisterAdminCommand("clearalias", function(source, args, rawCommand)
+	plsr.Chat:RegisterAdminCommand("clearalias", function(source, args, rawCommand)
 		if tonumber(args[1]) then
-			local char = exports['pulsar-characters']:FetchBySID(tonumber(args[1]))
+			local char = plsr.Fetch:SID(tonumber(args[1]))
 
 			if char ~= nil then
 				local aliases = char:GetData("Alias")
 				aliases[args[2]] = nil
 				char:SetData("Alias", aliases)
-				exports["pulsar-chat"]:SendSystemSingle(
+				plsr.Chat.Send.System:Single(
 					source,
 					string.format(
 						"Alias Cleared For %s %s (%s) For %s",
@@ -34,10 +33,10 @@ function RegisterChatCommands()
 					)
 				)
 			else
-				exports["pulsar-chat"]:SendSystemSingle(source, "Invalid Target")
+				plsr.Chat.Send.System:Single(source, "Invalid Target")
 			end
 		else
-			exports["pulsar-chat"]:SendSystemSingle(source, "Invalid Target")
+			plsr.Chat.Send.System:Single(source, "Invalid Target")
 		end
 	end, {
 		help = "[Admin] Clear Player App Alias",
@@ -53,9 +52,9 @@ function RegisterChatCommands()
 		},
 	}, 2)
 
-	exports["pulsar-chat"]:RegisterAdminCommand("clearprofile", function(source, args, rawCommand)
+	plsr.Chat:RegisterAdminCommand("clearprofile", function(source, args, rawCommand)
 		if tonumber(args[1]) then
-			local char = exports['pulsar-characters']:FetchBySID(tonumber(args[1]))
+			local char = plsr.Fetch:SID(tonumber(args[1]))
 			if char ~= nil then
 				local profiles = char:GetData("Profiles") or {}
 
@@ -82,7 +81,7 @@ function RegisterChatCommands()
 
 					profiles[args[2]] = nil
 					char:SetData("Profiles", profiles)
-					exports["pulsar-chat"]:SendSystemSingle(
+					plsr.Chat.Send.System:Single(
 						source,
 						string.format(
 							"Profile Cleared For %s %s (%s) For %s",
@@ -95,10 +94,10 @@ function RegisterChatCommands()
 				else
 				end
 			else
-				exports["pulsar-chat"]:SendSystemSingle(source, "Invalid Target")
+				plsr.Chat.Send.System:Single(source, "Invalid Target")
 			end
 		else
-			exports["pulsar-chat"]:SendSystemSingle(source, "Invalid Target")
+			plsr.Chat.Send.System:Single(source, "Invalid Target")
 		end
 	end, {
 		help = "[Admin] Clear Player App Alias",
@@ -114,9 +113,9 @@ function RegisterChatCommands()
 		},
 	}, 2)
 
-	exports["pulsar-chat"]:RegisterStaffCommand("ctwitter", function(source, args, rawCommand)
+	plsr.Chat:RegisterStaffCommand("ctwitter", function(source, args, rawCommand)
 		ClearAllTweets(args[1])
-		exports["pulsar-chat"]:SendSystemSingle(source, "All Tweets Removed")
+		plsr.Chat.Send.System:Single(source, "All Tweets Removed")
 	end, {
 		help = "[Admin] Clear All Tweets",
 		params = {
@@ -127,7 +126,7 @@ function RegisterChatCommands()
 		},
 	}, -1)
 
-	exports["pulsar-chat"]:RegisterStaffCommand("twitteraccount", function(source, args, rawCommand)
+	plsr.Chat:RegisterStaffCommand("twitteraccount", function(source, args, rawCommand)
 		local twitterName = args[1]
 
 		local sid = MySQL.scalar.await("SELECT sid FROM character_app_profiles WHERE name = ? AND app = ?", {
@@ -135,9 +134,9 @@ function RegisterChatCommands()
 			"twitter",
 		})
 
-		local char = exports['pulsar-characters']:FetchBySID(sid)
+		local char = plsr.Fetch:SID(sid)
 		if char ~= nil then
-			exports["pulsar-chat"]:SendSystemSingle(
+			plsr.Chat.Send.System:Single(
 				source,
 				string.format(
 					"Twitter Account Found With Name: %s. %s %s (SID: %s) [User: %s]",
@@ -149,7 +148,30 @@ function RegisterChatCommands()
 				)
 			)
 		else
-			exports["pulsar-chat"]:SendSystemSingle(source, "No Twitter Account Found")
+			plsr.Database:Single("SELECT `data` FROM `characters` WHERE `sid` = ? AND `deleted` = 0", { sid }, function(success, row)
+				if not success or row == nil then
+					plsr.Chat.Send.System:Single(source, "No Twitter Account Found")
+					return
+				end
+
+				local ok, char = pcall(json.decode, row.data)
+				if not ok or type(char) ~= "table" then
+					plsr.Chat.Send.System:Single(source, "No Twitter Account Found")
+					return
+				end
+
+				plsr.Chat.Send.System:Single(
+					source,
+					string.format(
+						"Twitter Account Found With Name: %s. %s %s (SID: %s) [User: %s]",
+						twitterName,
+						char.First,
+						char.Last,
+						char.SID,
+						char.User
+					)
+				)
+			end)
 		end
 	end, {
 		help = "[Admin] Get Twitter Account Owner",
@@ -161,7 +183,7 @@ function RegisterChatCommands()
 		},
 	}, 1)
 
-	exports["pulsar-chat"]:RegisterAdminCommand("govtweet", function(source, args, rawCommand)
+	plsr.Chat:RegisterAdminCommand("govtweet", function(source, args, rawCommand)
 		local accountName, accountAvatar, content, image = args[1], args[2], args[3], args[4]
 
 		if accountName and accountAvatar and content then
@@ -176,11 +198,11 @@ function RegisterChatCommands()
 				}
 			end
 
-			exports['pulsar-phone']:TwitterPost(-1, -1, {
+			plsr.Phone.Twitter:Post(-1, -1, {
 				name = accountName,
 				picture = accountAvatar,
 			}, content, image, false, "government")
-			exports["pulsar-chat"]:SendSystemSingle(source, "Tweet Sent")
+			plsr.Chat.Send.System:Single(source, "Tweet Sent")
 		end
 	end, {
 		help = "[Admin] Send GOVERNMENT ACCOUNT Tweet",
@@ -204,32 +226,32 @@ function RegisterChatCommands()
 		},
 	}, -1)
 
-	exports["pulsar-chat"]:RegisterAdminCommand("reloadtracks", function(source, args, rawCommand)
+	plsr.Chat:RegisterAdminCommand("reloadtracks", function(source, args, rawCommand)
 		ReloadRaceTracks()
-		exports["pulsar-chat"]:SendSystemSingle(source, "Reloaded Vroom Vrooms")
+		plsr.Chat.Send.System:Single(source, "Reloaded Vroom Vrooms")
 	end, {
 		help = "[Admin] Reload Race Tracks",
 	}, 0)
 
-	exports["pulsar-chat"]:RegisterAdminCommand("reloadpdtracks", function(source, args, rawCommand)
+	plsr.Chat:RegisterAdminCommand("reloadpdtracks", function(source, args, rawCommand)
 		ReloadRaceTracksPD()
-		exports["pulsar-chat"]:SendSystemSingle(source, "Reloaded PD Vroom Vrooms")
+		plsr.Chat.Send.System:Single(source, "Reloaded PD Vroom Vrooms")
 	end, {
 		help = "[Admin] Reload PD Race Tracks",
 	}, 0)
 
-	exports["pulsar-chat"]:RegisterAdminCommand("raceinvite", function(source, args, rawCommand)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Chat:RegisterAdminCommand("raceinvite", function(source, args, rawCommand)
+		local char = plsr.Fetch:CharacterSource(source)
 
 		if char then
 			local id, count = args[1], tonumber(args[2])
-
+	
 			if IsRedlineRace(id) then
-				exports.ox_inventory:AddItem(source, "event_invite", count, {
+				plsr.Inventory:AddItem(char:GetData("SID"), "event_invite", count, {
 					Event = id,
 				}, 1)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "Invalid Race Event")
+				plsr.Execute:Client(source, "Notification", "Error", "Invalid Race Event")
 			end
 		end
 	end, {

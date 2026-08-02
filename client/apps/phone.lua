@@ -6,7 +6,7 @@ function StartCallTimeout()
 		return
 	end
 	_calling = true
-	if LocalPlayer.state.phoneOpen then
+	if plsr.State.flags.phoneOpen then
 		PhoneTextToCall()
 	else
 		PhonePlayCall(false)
@@ -18,120 +18,115 @@ function StartCallTimeout()
 			if count < 3000 then
 				count = count + 1
 			else
-				exports['pulsar-phone']:CallEnd()
+				plsr.Phone.Call:End()
 				_calling = false
 			end
 		end
 	end)
 end
 
-function playsound()
-	exports["pulsar-sounds"]:StopDistance(GetPlayerServerId(LocalPlayer.state.PlayerID),
-		_settings.ringtone or "ringtone1.ogg")
-	exports["pulsar-sounds"]:StopOne("ringing.ogg")
-	exports["pulsar-sounds"]:StopOne("vibrate.ogg")
+function StopCallSounds()
+	plsr.Sounds.Stop:Distance(GetPlayerServerId(plsr.State.flags.PlayerID), _settings.ringtone or "ringtone1.ogg")
+	plsr.Sounds.Stop:One("ringing.ogg")
+	plsr.Sounds.Stop:One("vibrate.ogg")
 end
 
-exports("CallCreate", function(data)
-	local p = promise.new()
-	exports["pulsar-sounds"]:LoopOne("ringing.ogg", 0.1 * (_settings.volume / 100))
-	SendNUIMessage({ type = "SET_CALL_PENDING", data = { number = data.number } })
-	data.limited = _limited
+PHONE.Call = {
+	Create = function(self, data)
+		local p = promise.new()
+		plsr.Sounds.Loop:One("ringing.ogg", 0.1 * (_settings.volume / 100))
+		SendNUIMessage({ type = "SET_CALL_PENDING", data = { number = data.number } })
+		data.limited = _limited
 
-	if _payphone then
-		data.isAnon = true
-	end
-	exports["pulsar-core"]:ServerCallback("Phone:Phone:CreateCall", data, function(status)
-		if status then
-			_call = {
-				id = 1,
-				state = 0,
-				number = data.number,
-				duration = -1,
-				method = 1,
-			}
-
-			StartCallTimeout()
-			p:resolve(true)
-		else
-			p:resolve(false)
+		if _payphone then
+			data.isAnon = true
 		end
-	end)
-	return Citizen.Await(p)
-end)
+		plsr.Callbacks:ServerCallback("Phone:Phone:CreateCall", data, function(status)
+			if status then
+				_call = {
+					id = 1,
+					state = 0,
+					number = data.number,
+					duration = -1,
+					method = 1,
+				}
 
-exports("CallReceive", function(id, number, limited)
-	_call = {
-		id = id,
-		state = 1,
-		number = number,
-		duration = -1,
-		method = 0,
-	}
-	SendNUIMessage({ type = "SET_CALL_INCOMING", data = { number = number, limited = limited } })
-	if _settings and _settings.volume > 0 then
-		exports["pulsar-sounds"]:LoopDistance(10, _settings.ringtone or "ringtone1.ogg",
-			0.1 * (_settings.volume / 100))
-	else
-		exports["pulsar-sounds"]:LoopOne("vibrate.ogg", 0.1)
-	end
-end)
-
-exports("CallAccept", function()
-	playsound()
-	if LocalPlayer.state.phoneOpen then
-		PhoneTextToCall()
-	end
-	exports["pulsar-core"]:ServerCallback("Phone:Phone:AcceptCall", _call)
-end)
-
-exports("CallEnd", function()
-	_calling = false
-	playsound()
-	exports["pulsar-core"]:ServerCallback("Phone:Phone:EndCall")
-end)
-
-exports("CallRead", function()
-	exports["pulsar-core"]:ServerCallback("Phone:Phone:ReadCalls")
-end)
-
-exports("CallStatus", function()
-	return _call ~= nil
-end)
+				StartCallTimeout()
+				p:resolve(true)
+			else
+				p:resolve(false)
+			end
+		end)
+		return Citizen.Await(p)
+	end,
+	Recieve = function(self, id, number, limited)
+		_call = {
+			id = id,
+			state = 1,
+			number = number,
+			duration = -1,
+			method = 0,
+		}
+		SendNUIMessage({ type = "SET_CALL_INCOMING", data = { number = number, limited = limited } })
+		if _settings and _settings.volume > 0 then
+			plsr.Sounds.Loop:Distance(10, _settings.ringtone or "ringtone1.ogg", 0.1 * (_settings.volume / 100))
+		else
+			plsr.Sounds.Loop:One("vibrate.ogg", 0.1)
+		end
+	end,
+	Accept = function(self)
+		StopCallSounds()
+		if plsr.State.flags.phoneOpen then
+			PhoneTextToCall()
+		end
+		plsr.Callbacks:ServerCallback("Phone:Phone:AcceptCall", _call)
+	end,
+	End = function(self)
+		_calling = false
+		StopCallSounds()
+		plsr.Callbacks:ServerCallback("Phone:Phone:EndCall")
+	end,
+	Read = function(self)
+		plsr.Callbacks:ServerCallback("Phone:Phone:ReadCalls")
+	end,
+	Status = function(self)
+		return _call ~= nil
+	end,
+}
 
 AddEventHandler("Characters:Client:Updated", function(key)
 	if key == "States" and _call ~= nil then
-		exports['pulsar-phone']:CallEnd()
+		plsr.Phone.Call:End()
 	end
 end)
 
 AddEventHandler("Phone:Client:RemovePhone", function()
 	if _call ~= nil then
-		exports['pulsar-phone']:CallEnd()
+		plsr.Phone.Call:End()
 	end
 end)
 
 AddEventHandler("Ped:Client:Died", function()
 	if _call ~= nil then
-		exports['pulsar-phone']:CallEnd()
+		plsr.Phone.Call:End()
 	end
 end)
 
 RegisterNetEvent("Jail:Client:Jailed", function()
 	if _call ~= nil then
-		exports['pulsar-phone']:CallEnd()
+		plsr.Phone.Call:End()
 	end
 end)
 
 RegisterNetEvent("Hospital:Client:ICU:Sent", function()
 	if _call ~= nil then
-		exports['pulsar-phone']:CallEnd()
+		plsr.Phone.Call:End()
 	end
 end)
 
 RegisterNetEvent("Characters:Client:Logout", function()
 	if _call ~= nil then
-		exports['pulsar-phone']:CallEnd()
+		plsr.Phone.Call:End()
 	end
 end)
 
@@ -139,14 +134,14 @@ RegisterNetEvent("Phone:Client:Phone:EndCall", function()
 	SendNUIMessage({ type = "END_CALL" })
 	_call = nil
 
-	playsound()
+	StopCallSounds()
 
 	CreateThread(function()
 		Wait(100)
-		exports["pulsar-sounds"]:PlayOne("ended.ogg", 0.15)
+		plsr.Sounds.Play:One("ended.ogg", 0.15)
 	end)
 
-	if LocalPlayer.state.phoneOpen then
+	if plsr.State.flags.phoneOpen then
 		PhoneCallToText()
 	else
 		PhonePlayOut()
@@ -154,10 +149,10 @@ RegisterNetEvent("Phone:Client:Phone:EndCall", function()
 end)
 
 RegisterNetEvent("Phone:Client:Phone:RecieveCall", function(id, number, limited)
-	if exports['pulsar-jail']:IsJailed() then
+	if plsr.Jail:IsJailed() then
 		TriggerEvent("Phone:Nui:Phone:EndCall")
 	else
-		exports['pulsar-phone']:CallReceive(id, number, limited)
+		plsr.Phone.Call:Recieve(id, number, limited)
 	end
 end)
 
@@ -165,38 +160,38 @@ RegisterNetEvent("Phone:Client:Phone:AcceptCall", function(number)
 	_calling = false
 	_call.state = 2
 	_call.duration = 0
-	playsound()
+	StopCallSounds()
 	SendNUIMessage({ type = "SET_CALL_ACTIVE" })
 	PhonePlayCall(false)
 end)
 
 AddEventHandler("Phone:Nui:Phone:AcceptCall", function()
-	playsound()
-	exports['pulsar-phone']:CallAccept()
+	StopCallSounds()
+	plsr.Phone.Call:Accept()
 end)
 
 AddEventHandler("Phone:Nui:Phone:EndCall", function()
-	playsound()
-	exports['pulsar-phone']:CallEnd()
+	StopCallSounds()
+	plsr.Phone.Call:End()
 end)
 
 RegisterNUICallback("CreateCall", function(data, cb)
-	cb(exports['pulsar-phone']:CallCreate(data))
+	cb(plsr.Phone.Call:Create(data))
 end)
 
 RegisterNUICallback("AcceptCall", function(data, cb)
 	cb("OK")
-	playsound()
-	exports['pulsar-phone']:CallAccept()
+	StopCallSounds()
+	plsr.Phone.Call:Accept()
 end)
 
 RegisterNUICallback("EndCall", function(data, cb)
 	cb("OK")
-	playsound()
-	exports['pulsar-phone']:CallEnd()
+	StopCallSounds()
+	plsr.Phone.Call:End()
 end)
 
 RegisterNUICallback("ReadCalls", function(data, cb)
 	cb("OK")
-	exports['pulsar-phone']:CallRead()
+	plsr.Phone.Call:Read()
 end)

@@ -1,10 +1,3 @@
---[[
-	This code is probably a steaming pile of shit, I beg someone
-	that still has a few functioning brain cells to rewrite this
-	so it isn't as much of a steaming pile of shit.
-
-	Send Help.
-]]
 lapTimes = {}
 lap_start = nil
 
@@ -136,7 +129,7 @@ local ghosting = false
 local ghostingEnded = false
 local function UnGhostPlayer()
 	ghosting = false
-	SetLocalPlayerAsGhost(false)
+    SetLocalPlayerAsGhost(false)
 end
 
 local function GhostPlayer()
@@ -151,20 +144,20 @@ local function GhostPlayer()
 	end
 
 	ghosting = true
-	--SetGhostedEntityAlpha(254)
-	SetLocalPlayerAsGhost(true)
+    --SetGhostedEntityAlpha(254)
+    SetLocalPlayerAsGhost(true)
 
 	CreateThread(function()
 		while ghosting do
 			local myPos = GetEntityCoords(PlayerPedId())
 			for k, v in ipairs(GetActivePlayers()) do
-				if Player(GetPlayerServerId(v)).state.onDuty == "police" then
+				if plsr.State:GetPublicFlag(GetPlayerServerId(v), 'onDuty') == "police" then
 					local ped = GetPlayerPed(v)
 					if DoesEntityExist(ped) then
 						local veh = GetVehiclePedIsIn(ped)
 						if DoesEntityExist(veh) then
 							if #(myPos - GetEntityCoords(veh)) <= 100.0 then
-								exports["pulsar-hud"]:Notification("info", "Police Nearby, Race Phasing Disabled")
+								plsr.Notification:Info("Police Nearby, Race Phasing Disabled")
 								ghostingEnded = true
 								UnGhostPlayer()
 							end
@@ -180,7 +173,7 @@ end
 RegisterNetEvent("Phone:Client:Redline:StoreTracks", function(tracks)
 	_tracks = tracks
 
-	exports['pulsar-phone']:DataSet("tracks", _tracks)
+	plsr.Phone.Data:Set("tracks", _tracks)
 end)
 
 RegisterNetEvent("Phone:Client:Redline:StoreSingleTrack", function(tId, track)
@@ -203,7 +196,7 @@ RegisterNetEvent("Phone:Client:Redline:StoreSingleTrack", function(tId, track)
 		table.insert(_tracks, track)
 	end
 
-	exports['pulsar-phone']:DataSet("tracks", _tracks)
+	plsr.Phone.Data:Set("tracks", _tracks)
 end)
 
 RegisterNetEvent("Phone:Client:Redline:Spawn", function(data)
@@ -235,7 +228,7 @@ end)
 RegisterNetEvent("Phone:Client:Redline:CancelRace", function(id)
 	if _races[id] then
 		_races[id].state = -1
-
+	
 		SendNUIMessage({
 			type = "CANCEL_RACE",
 			data = {
@@ -253,7 +246,7 @@ RegisterNetEvent("Phone:Client:Redline:FinishRace", function(id, race)
 	_races[id] = race
 
 	if _activeRace?.id == id then
-		local myAlias = LocalPlayer.state.Character:GetData("Profiles")?.redline?.name
+		local myAlias = plsr.State.character.Profiles?.redline?.name
 		if myAlias == racer then
 			Cleanup()
 			ghostingEnded = true
@@ -288,7 +281,7 @@ RegisterNetEvent("Phone:Client:Redline:StartRace", function(id)
 				state = 1,
 			},
 		})
-
+	
 		if _activeRace ~= nil and id == _activeRace.id then
 			Cleanup()
 			StartRace()
@@ -299,7 +292,7 @@ end)
 RegisterNetEvent("Phone:Client:Redline:JoinRace", function(id, racer, data)
 	if _races[id] then
 		_races[id].racers[racer] = data
-
+	
 		SendNUIMessage({
 			type = "JOIN_RACE",
 			data = {
@@ -314,14 +307,14 @@ end)
 RegisterNetEvent("Phone:Client:Redline:LeaveRace", function(id, racer)
 	if _races[id] then
 		_races[id].racers[racer] = nil
-
+	
 		if _activeRace?.id == id then
-			local myAlias = LocalPlayer.state.Character:GetData("Profiles")?.redline?.name
+			local myAlias = plsr.State.character.Profiles?.redline?.name
 			if myAlias == racer then
 				Cleanup()
 				ghostingEnded = true
 				UnGhostPlayer()
-
+	
 				SendNUIMessage({
 					type = "I_RACE",
 					data = {
@@ -331,7 +324,7 @@ RegisterNetEvent("Phone:Client:Redline:LeaveRace", function(id, racer)
 				_activeRace = nil
 			end
 		end
-
+	
 		SendNUIMessage({
 			type = "LEAVE_RACE",
 			data = {
@@ -360,7 +353,7 @@ RegisterNetEvent("Phone:Redline:NotifyDNF", function(id)
 		ghostingEnded = true
 		UnGhostPlayer()
 
-		exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "CHECKPOINT_MISSED", "HUD_MINI_GAME_SOUNDSET")
+		plsr.UISounds.Play:FrontEnd(-1, "CHECKPOINT_MISSED", "HUD_MINI_GAME_SOUNDSET")
 		SendNUIMessage({
 			type = "RACE_DNF",
 		})
@@ -376,7 +369,7 @@ RegisterNetEvent("Phone:Redline:NotifyDNF", function(id)
 end)
 
 RegisterNUICallback("CreateRace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:CreateRace", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Redline:CreateRace", data, function(res)
 		if res == nil or res.failed then
 			_activeRace = nil
 			cb(res or false)
@@ -401,13 +394,13 @@ RegisterNUICallback("CreateRace", function(data, cb)
 end)
 
 RegisterNUICallback("CancelRace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:CancelRace", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Redline:CancelRace", data, function(res)
 		cb(res)
 	end)
 end)
 
 RegisterNUICallback("PracticeTrack", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:GetTrack", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Redline:GetTrack", data, function(res)
 		cb(res ~= nil)
 		if res ~= nil then
 			SetupTrack(res)
@@ -417,7 +410,7 @@ RegisterNUICallback("PracticeTrack", function(data, cb)
 end)
 
 RegisterNUICallback("JoinRace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:JoinRace", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Redline:JoinRace", data, function(res)
 		if res then
 			_activeRace = res
 
@@ -441,11 +434,11 @@ end)
 
 RegisterNUICallback("LeaveRace", function(data, cb)
 	UnGhostPlayer()
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:LeaveRace", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Redline:LeaveRace", data, function(res)
 		if _activeRace ~= nil then
 			_activeRace.dnf = true
 			Cleanup()
-			exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "CHECKPOINT_MISSED", "HUD_MINI_GAME_SOUNDSET")
+			plsr.UISounds.Play:FrontEnd(-1, "CHECKPOINT_MISSED", "HUD_MINI_GAME_SOUNDSET")
 			SendNUIMessage({
 				type = "RACE_DNF",
 			})
@@ -478,7 +471,7 @@ RegisterNetEvent("Redline:Client:RemovedFromRace", function()
 	if _activeRace ~= nil then
 		_activeRace.dnf = true
 		Cleanup()
-		exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "CHECKPOINT_MISSED", "HUD_MINI_GAME_SOUNDSET")
+		plsr.UISounds.Play:FrontEnd(-1, "CHECKPOINT_MISSED", "HUD_MINI_GAME_SOUNDSET")
 		SendNUIMessage({
 			type = "RACE_DNF",
 		})
@@ -486,7 +479,7 @@ RegisterNetEvent("Redline:Client:RemovedFromRace", function()
 end)
 
 RegisterNUICallback("CreateTrack", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Permissions", {
+	plsr.Callbacks:ServerCallback("Phone:Permissions", {
 		redline = { "create" },
 	}, function(res)
 		cb(res)
@@ -499,7 +492,7 @@ end)
 
 RegisterNUICallback("FinishCreator", function(data, cb)
 	_creator = false
-	exports["pulsar-core"]:ServerCallback("Phone:Permissions", {
+	plsr.Callbacks:ServerCallback("Phone:Permissions", {
 		redline = { "create" },
 	}, function(res)
 		if res then
@@ -539,11 +532,11 @@ RegisterNUICallback("FinishCreator", function(data, cb)
 					end
 				end
 				_pendingTrack.Distance = quickMaths((_pendingTrack.Distance / 1609.34)) .. " Miles"
-				exports["pulsar-core"]:ServerCallback("Phone:Redline:SaveTrack", _pendingTrack, function(res2)
+				plsr.Callbacks:ServerCallback("Phone:Redline:SaveTrack", _pendingTrack, function(res2)
 					cb(res2)
 				end)
 			else
-				exports["pulsar-hud"]:Notification("error", "Not Enough Checkpoints")
+				plsr.Notification:Error("Not Enough Checkpoints")
 				cb(false)
 			end
 		else
@@ -553,11 +546,11 @@ RegisterNUICallback("FinishCreator", function(data, cb)
 end)
 
 RegisterNUICallback("DeleteTrack", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Permissions", {
+	plsr.Callbacks:ServerCallback("Phone:Permissions", {
 		redline = { "create" },
 	}, function(res)
 		if res then
-			exports["pulsar-core"]:ServerCallback("Phone:Redline:DeleteTrack", data, function(res2)
+			plsr.Callbacks:ServerCallback("Phone:Redline:DeleteTrack", data, function(res2)
 				cb(res2)
 			end)
 		else
@@ -567,11 +560,11 @@ RegisterNUICallback("DeleteTrack", function(data, cb)
 end)
 
 RegisterNUICallback("ResetTrackHistory", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Permissions", {
+	plsr.Callbacks:ServerCallback("Phone:Permissions", {
 		redline = { "create" },
 	}, function(res)
 		if res then
-			exports["pulsar-core"]:ServerCallback("Phone:Redline:ResetTrackHistory", data, function(res2)
+			plsr.Callbacks:ServerCallback("Phone:Redline:ResetTrackHistory", data, function(res2)
 				cb(res2)
 			end)
 		else
@@ -586,19 +579,19 @@ RegisterNUICallback("StopCreator", function(data, cb)
 end)
 
 RegisterNUICallback("StartRace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:StartRace", _activeRace.id, cb)
+	plsr.Callbacks:ServerCallback("Phone:Redline:StartRace", _activeRace.id, cb)
 end)
 
 RegisterNUICallback("EndRace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:EndRace", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Redline:EndRace", data, cb)
 end)
 
 RegisterNUICallback("SendInvite", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:SendInvite", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Redline:SendInvite", data, cb)
 end)
 
 RegisterNUICallback("AcceptInvite", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:AcceptInvite", data, function(res)
+	plsr.Callbacks:ServerCallback("Phone:Redline:AcceptInvite", data, function(res)
 		if res then
 			_activeRace = res
 
@@ -620,11 +613,11 @@ RegisterNUICallback("AcceptInvite", function(data, cb)
 end)
 
 RegisterNUICallback("DeclineInvite", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:DeclineInvite", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Redline:DeclineInvite", data, cb)
 end)
 
 RegisterNetEvent("Phone:Client:Redline:ReceiveInvite", function(data)
-	exports['pulsar-phone']:NotificationAdd(
+	plsr.Phone.Notification:Add(
 		"Received Event Invite",
 		string.format("%s Invited You To %s", data.sender, data.event),
 		GetCloudTimeAsInt(),
@@ -645,7 +638,7 @@ RegisterNetEvent("Phone:Client:Redline:ReceiveInvite", function(data)
 end)
 
 RegisterNUICallback("RemoveFromRace", function(data, cb)
-	exports["pulsar-core"]:ServerCallback("Phone:Redline:RemoveRacer", data, cb)
+	plsr.Callbacks:ServerCallback("Phone:Redline:RemoveRacer", data, cb)
 end)
 
 function FinishRace()
@@ -661,9 +654,9 @@ function FinishRace()
 				vehName = GetDisplayNameFromVehicleModel(vehModel)
 			end
 
-			local vehEnt = Entity(veh)
-			if vehEnt and vehEnt.state and vehEnt.state.Make and vehEnt.state.Model then
-				vehName = vehEnt.state.Make .. " " .. vehEnt.state.Model
+			local vehEnt = plsr.State.Entity(veh)
+			if vehEnt and vehEnt.Make and vehEnt.Model then
+				vehName = vehEnt.Make .. " " .. vehEnt.Model
 			end
 
 			TriggerServerEvent(
@@ -711,7 +704,6 @@ function SetupTrack(skipBlip)
 	end
 end
 
--- This is a mess that somehow functions? Someone that is sane pls rewrite
 function StartRace()
 	cCp = 1
 	sCp = -1
@@ -728,8 +720,8 @@ function StartRace()
 	local countdownMax = tonumber(_activeRace.countdown) or 20
 	local countdown = 0
 	while countdown < countdownMax and _activeRace ~= nil and _loggedIn do
-		exports["pulsar-hud"]:Notification("info", string.format("Race Starting In %s", countdownMax - countdown))
-		exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "5_SEC_WARNING", "HUD_MINI_GAME_SOUNDSET")
+		plsr.Notification:Info(string.format("Race Starting In %s", countdownMax - countdown))
+		plsr.UISounds.Play:FrontEnd(-1, "5_SEC_WARNING", "HUD_MINI_GAME_SOUNDSET")
 		countdown = countdown + 1
 		Wait(1000)
 	end
@@ -739,8 +731,8 @@ function StartRace()
 	end
 
 	CreateThread(function()
-		exports["pulsar-hud"]:Notification("info", "Race Started")
-		exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "GO", "HUD_MINI_GAME_SOUNDSET")
+		plsr.Notification:Info("Race Started")
+		plsr.UISounds.Play:FrontEnd(-1, "GO", "HUD_MINI_GAME_SOUNDSET")
 		SendNUIMessage({
 			type = "RACE_START",
 			data = {
@@ -782,8 +774,8 @@ function StartRace()
 					cLp = cLp + 1
 					cCps = {}
 					if cLp <= tonumber(_activeRace.laps) then
-						exports["pulsar-hud"]:Notification("info", string.format("Lap %s", cLp))
-						exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET")
+						plsr.Notification:Info(string.format("Lap %s", cLp))
+						plsr.UISounds.Play:FrontEnd(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET")
 
 						if lap_start ~= nil then
 							local lapEnd = GetGameTimer()
@@ -805,7 +797,7 @@ function StartRace()
 				if sCp ~= -1 then -- i think this is sprint?
 					SetBlipColour(blip, 0)
 					table.insert(cCps, cCp)
-					exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "CHECKPOINT_NORMAL", "HUD_MINI_GAME_SOUNDSET")
+					plsr.UISounds.Play:FrontEnd(-1, "CHECKPOINT_NORMAL", "HUD_MINI_GAME_SOUNDSET")
 
 					if _activeRace.phasing == "checkpoints" and cCp >= (_activeRace.phasingAdv + 1) then
 						ghostingEnded = true
@@ -835,9 +827,9 @@ function StartRace()
 					_activeRace.trackData.Type == "p2p" and #cCps == #_activeRace.trackData.Checkpoints
 					or cLp > tonumber(_activeRace.laps)
 				then
-					exports["pulsar-hud"]:Notification("info", "Race Finished")
+					plsr.Notification:Info("Race Finished")
 					Cleanup()
-					exports['pulsar-sounds']:UISoundsPlayFrontEnd(-1, "FIRST_PLACE", "HUD_MINI_GAME_SOUNDSET")
+					plsr.UISounds.Play:FrontEnd(-1, "FIRST_PLACE", "HUD_MINI_GAME_SOUNDSET")
 					SendNUIMessage({
 						type = "RACE_END",
 					})
@@ -872,7 +864,6 @@ function StartRace()
 				end
 				SetBlipColour(blip, 6)
 
-				-- Like what is this code?
 				local ftr = nil
 				if cCp > #_activeRace.trackData.Checkpoints then
 					ftr = _activeRace.trackData.Checkpoints[1]
@@ -893,7 +884,7 @@ function StartRace()
 					handleFlare(_activeRace.trackData.Checkpoints[cCp + 1])
 				end
 
-				local v = GetVehiclePedIsIn(LocalPlayer.state.ped)
+				local v = GetVehiclePedIsIn(PlayerPedId())
 				if v ~= 0 and GetPedInVehicleSeat(v) then
 					SetGPS(ftr)
 				end
@@ -925,7 +916,7 @@ function Cleanup()
 		end
 	end
 
-
+	
 	if leftFlare then
 		StopParticleFxLooped(leftFlare, false)
 	end
@@ -1049,16 +1040,16 @@ function CreateCheckpoint()
 	end
 
 	if lcp == nil or dist > 5 then
-		local loc = rotateVector(facingVector, 90)
+		local leftOffset = rotateVector(facingVector, 90)
 		local left = enlargeVector(
 			{ x = pX, y = pY, z = pZ },
-			{ x = pX + loc.x, y = pY + loc.y, z = pZ + loc.z },
+			{ x = pX + leftOffset.x, y = pY + leftOffset.y, z = pZ + leftOffset.z },
 			_size / 2
 		)
-		local loc2 = rotateVector(facingVector, -90)
+		local rightOffset = rotateVector(facingVector, -90)
 		local right = enlargeVector(
 			{ x = pX, y = pY, z = pZ },
-			{ x = pX + loc2.x, y = pY + loc2.y, z = pZ + loc2.z },
+			{ x = pX + rightOffset.x, y = pY + rightOffset.y, z = pZ + rightOffset.z },
 			_size / 2
 		)
 		-- _pendingTrack.Checkpoints[(#_pendingTrack.Checkpoints + 1)] = {
@@ -1093,7 +1084,7 @@ function CreateCheckpoint()
 
 		AddRaceBlip(_pendingTrack.Checkpoints[#_pendingTrack.Checkpoints])
 	else
-		exports["pulsar-hud"]:Notification("error", "Point Too Close To Last Point")
+		plsr.Notification:Error("Point Too Close To Last Point")
 	end
 end
 
@@ -1123,16 +1114,16 @@ function DisplayTempCheckpoint()
 	}
 	local pX, pY, pZ = table.unpack(GetEntityCoords(pPed))
 
-	local loc = rotateVector(facingVector, 90)
+	local leftOffset = rotateVector(facingVector, 90)
 	local left = enlargeVector(
 		{ x = pX, y = pY, z = pZ },
-		{ x = pX + loc.x, y = pY + loc.y, z = pZ + loc.z },
+		{ x = pX + leftOffset.x, y = pY + leftOffset.y, z = pZ + leftOffset.z },
 		_size / 2
 	)
-	local loc2 = rotateVector(facingVector, -90)
+	local rightOffset = rotateVector(facingVector, -90)
 	local right = enlargeVector(
 		{ x = pX, y = pY, z = pZ },
-		{ x = pX + loc2.x, y = pY + loc2.y, z = pZ + loc2.z },
+		{ x = pX + rightOffset.x, y = pY + rightOffset.y, z = pZ + rightOffset.z },
 		_size / 2
 	)
 

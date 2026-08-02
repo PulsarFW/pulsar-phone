@@ -1,8 +1,8 @@
 AddEventHandler("Phone:Server:RegisterCallbacks", function()
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Home:CreateDigiKey", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Home:CreateDigiKey", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
-			local property = exports['pulsar-properties']:Get(data.id)
+			local property = plsr.Properties:Get(data.id)
 			if property ~= nil then
 				local mykey = property.keys[char:GetData("ID")]
 				if mykey ~= nil and mykey.Owner then
@@ -17,20 +17,20 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 						end
 
 						if charId ~= nil and property.keys[charId] ~= nil then
-							local onlineChar = exports['pulsar-characters']:FetchByID(data.target)
+							local onlineChar = plsr.Fetch:ID(data.target)
 							if onlineChar then
 								charSource = onlineChar:GetData("Source")
 							end
 
-							if exports['pulsar-properties']:GiveKey({
-									ID = charId,
-									SID = property.keys[charId].SID,
-									First = property.keys[charId].First,
-									Last = property.keys[charId].Last,
-									Source = charSource,
-								}, data.id, false, data.permissions, true) then
+							if plsr.Properties.Keys:Give({
+								ID = charId,
+								SID = property.keys[charId].SID,
+								First = property.keys[charId].First,
+								Last = property.keys[charId].Last,
+								Source = charSource,
+							}, data.id, false, data.permissions, true) then
 								if charSource then
-									exports['pulsar-phone']:NotificationAdd(
+									plsr.Phone.Notification:Add(
 										charSource,
 										"DigiKey Updated",
 										"One of your DigiKey's Have Been Updated",
@@ -50,17 +50,17 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 							cb({ error = true, code = 7 })
 						end
 					else
-						local tchar = exports['pulsar-characters']:FetchBySID(data.target)
+						local tchar = plsr.Fetch:SID(data.target)
 						if tchar ~= nil then
 							if property.keys[tchar:GetData("ID")] == nil then
-								if exports['pulsar-properties']:GiveKey({
-										ID = tchar:GetData("ID"),
-										SID = tchar:GetData("SID"),
-										First = tchar:GetData("First"),
-										Last = tchar:GetData("Last"),
-										Source = tchar:GetData("Source"),
-									}, data.id, false, data.permissions) then
-									exports['pulsar-phone']:NotificationAdd(
+								if plsr.Properties.Keys:Give({
+									ID = tchar:GetData("ID"),
+									SID = tchar:GetData("SID"),
+									First = tchar:GetData("First"),
+									Last = tchar:GetData("Last"),
+									Source = tchar:GetData("Source"),
+								}, data.id, false, data.permissions) then
+									plsr.Phone.Notification:Add(
 										tchar:GetData("Source"),
 										"DigiKey Issued",
 										"You've been given a new DigiKey",
@@ -93,17 +93,17 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Home:RevokeDigiKey", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Home:RevokeDigiKey", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
-			local property = exports['pulsar-properties']:Get(data.id)
+			local property = plsr.Properties:Get(data.id)
 			if property ~= nil then
 				local mykey = property.keys[char:GetData("ID")]
 				if mykey ~= nil and mykey.Owner then
-					if exports['pulsar-properties']:TakeKey(data.target, data.id) then
-						local tchar = exports['pulsar-characters']:FetchByID(data.id)
+					if plsr.Properties.Keys:Take(data.target, data.id) then
+						local tchar = plsr.Fetch:ID(data.id)
 						if tchar ~= nil then
-							exports['pulsar-phone']:NotificationAdd(
+							plsr.Phone.Notification:Add(
 								tchar:GetData("Source"),
 								"DigiKey Revoked",
 								"One of your DigiKeys have been revoked",
@@ -130,15 +130,15 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Home:RemoveMyKey", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Home:RemoveMyKey", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
-			local property = exports['pulsar-properties']:Get(data.id)
+			local property = plsr.Properties:Get(data.id)
 			if property ~= nil then
 				local mykey = property.keys[char:GetData("ID")]
 				if mykey ~= nil and not mykey.Owner then
-					if exports['pulsar-properties']:TakeKey(char:GetData("ID"), data.id) then
-						exports['pulsar-phone']:NotificationAdd(
+					if plsr.Properties.Keys:Take(char:GetData("ID"), data.id) then
+						plsr.Phone.Notification:Add(
 							source,
 							"DigiKey Revoked",
 							"One of your DigiKeys have been revoked",
@@ -164,13 +164,13 @@ AddEventHandler("Phone:Server:RegisterCallbacks", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Phone:Home:LockProperty", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Phone:Home:LockProperty", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
-			local property = exports['pulsar-properties']:Get(data.id)
+			local property = plsr.Properties:Get(data.id)
 			if property ~= nil then
 				if property.keys ~= nil and property.keys[char:GetData("ID")] ~= nil then
-					cb(exports['pulsar-properties']:ToggleLock(data.id))
+					cb(plsr.Properties.Utils:ToggleLock(data.id))
 				else
 					cb(false)
 				end
