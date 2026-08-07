@@ -32,10 +32,14 @@ end)
 AddEventHandler("Phone:Server:Startup", function()
 	for k, v in pairs(_royaltyCompanies) do
 		local t = plsr.Banking.Accounts:GetOrganization(k)
-		_pendingShopDeposits[k] = {
-			bank = t.Account,
-			royalties = {},
-		}
+		if t then
+			_pendingShopDeposits[k] = {
+				bank = t.Account,
+				royalties = {},
+			}
+		else
+			plsr.Logger:Warn("Phone", string.format("Organization bank account for '%s' not ready yet (normal on first server start before pulsar_finance seeds accounts), skipping royalties until next restart", k))
+		end
 	end
 
 	if not _startingPendingDepositThread then
