@@ -32,7 +32,7 @@
 	});
 
 	const loans = $derived([...(bankLoans?.loans ?? [])].sort((a, b) => b.NextPayment - a.NextPayment));
-	const viewedLoan = $derived(loans.find((l) => l._id === targetId));
+	const viewedLoan = $derived(loans.find((l) => String(l._id) === targetId));
 
 	function actualRemaining(loan: LoanData): number {
 		if (loan.Remaining <= 0) return 0;
